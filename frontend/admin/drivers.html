@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Driver Roster Management</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="ksrtc-header">
+        <a href="/admin/dashboard.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1>KSRTC LOCAL BUS TRACKING</h1>
+                <span>Driver Management</span>
+            </div>
+        </a>
+        <div class="ksrtc-nav-links">
+            <a href="/admin/dashboard.html" class="ksrtc-nav-link">Dashboard</a>
+            <a href="/admin/buses.html" class="ksrtc-nav-link">Buses</a>
+            <a href="/admin/drivers.html" class="ksrtc-nav-link active">Drivers</a>
+            <a href="/admin/routes-stops.html" class="ksrtc-nav-link">Routes & Stops</a>
+            <a href="/admin/live-monitoring.html" class="ksrtc-nav-link">Live Fleet Map</a>
+            <button class="btn-logout" onclick="auth.logout()">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        
+        <div class="content-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 style="font-size: 1.3rem; color: var(--ksrtc-dark);">👨‍✈️ Authorized Transport Drivers</h2>
+                <p style="font-size: 0.85rem; color: var(--text-secondary);">Depot driver directory, credentials, and duty vehicle allocations</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn-primary" onclick="openAddDriverModal()" style="width: auto; padding: 10px 18px;">
+                    + Register Driver
+                </button>
+                <button type="button" class="btn-primary" onclick="openAssignModal()" style="width: auto; background: #e2e8f0; color: #1e293b; padding: 10px 18px;">
+                    🚍 Allocate Bus
+                </button>
+            </div>
+        </div>
+
+        <!-- Drivers Table -->
+        <div class="content-card" style="padding: 0; overflow-x: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Driver Name</th>
+                        <th>Employee ID</th>
+                        <th>License Number</th>
+                        <th>Contact Mobile</th>
+                        <th>Assigned Vehicle</th>
+                        <th>Duty Status</th>
+                    </tr>
+                </thead>
+                <tbody id="drivers-table-body">
+                    <tr><td colspan="6" style="text-align: center; padding: 24px;">Loading driver roster...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Add Driver Modal -->
+        <div id="driver-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+            <div class="content-card" style="width: 100%; max-width: 500px; margin: 16px;">
+                <h3 style="margin-bottom: 16px; color: var(--ksrtc-dark);">Authorize New Driver</h3>
+                
+                <form onsubmit="handleCreateDriver(event)">
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" id="drv-modal-name" class="form-input" placeholder="e.g. Anand Kulkarni" required style="padding-left: 14px;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Employee ID</label>
+                            <input type="text" id="drv-modal-empid" class="form-input" placeholder="e.g. KSRTC-D-401" required style="padding-left: 14px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Driving License</label>
+                            <input type="text" id="drv-modal-license" class="form-input" placeholder="e.g. KA25201800123" required style="padding-left: 14px;">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" id="drv-modal-email" class="form-input" placeholder="driver@ksrtc.in" required style="padding-left: 14px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">10-Digit Mobile</label>
+                            <input type="tel" id="drv-modal-mobile" class="form-input" placeholder="9876543210" pattern="[6-9][0-9]{9}" maxlength="10" required style="padding-left: 14px;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Temporary Password</label>
+                        <input type="password" id="drv-modal-pass" class="form-input" placeholder="Min 6 characters" minlength="6" required style="padding-left: 14px;">
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-top: 20px;">
+                        <button type="submit" class="btn-primary">Create Driver</button>
+                        <button type="button" class="btn-primary" onclick="closeDriverModal()" style="background: #e2e8f0; color: #334155;">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Assign Bus Modal -->
+        <div id="assign-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+            <div class="content-card" style="width: 100%; max-width: 440px; margin: 16px;">
+                <h3 style="margin-bottom: 16px; color: var(--ksrtc-dark);">Allocate Bus to Driver</h3>
+                <form onsubmit="handleAssignBus(event)">
+                    <div class="form-group">
+                        <label class="form-label">Select Driver</label>
+                        <select id="assign-driver-select" class="form-select" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Select Bus</label>
+                        <select id="assign-bus-select" class="form-select" required></select>
+                    </div>
+                    <div style="display: flex; gap: 12px; margin-top: 20px;">
+                        <button type="submit" class="btn-primary">Confirm Allocation</button>
+                        <button type="button" class="btn-primary" onclick="closeAssignModal()" style="background: #e2e8f0; color: #334155;">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+
+    <script>
+        let driversList = [];
+        let busesList = [];
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('admin');
+            if (!user) return;
+            await loadDrivers();
+            await loadBusesForDropdown();
+        });
+
+        async function loadDrivers() {
+            const tbody = document.getElementById('drivers-table-body');
+            try {
+                const res = await api.get('/drivers');
+                if (!res || !res.success || res.drivers.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">No drivers authorized yet. Click "+ Register Driver" to add one.</td></tr>`;
+                    return;
+                }
+
+                driversList = res.drivers;
+                tbody.innerHTML = driversList.map(d => {
+                    const prof = d.profile || {};
+                    const activeAssign = d.driver_assignments && d.driver_assignments.find(a => a.status === 'active');
+                    const bus = activeAssign ? activeAssign.bus : null;
+
+                    return `
+                        <tr>
+                            <td><strong style="color: var(--ksrtc-dark);">${prof.full_name || 'Driver'}</strong></td>
+                            <td><span style="font-family: monospace;">${d.employee_id}</span></td>
+                            <td>${d.license_number}</td>
+                            <td>${prof.mobile_number || '-'}</td>
+                            <td>
+                                ${bus ? `<strong>${bus.bus_number}</strong> (${bus.bus_type})` : '<span style="color: var(--text-muted);">Unallocated</span>'}
+                            </td>
+                            <td><span class="badge ${d.status === 'on_trip' ? 'badge-live' : 'badge-simulated'}">${d.status.toUpperCase()}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error('Drivers error:', err);
+            }
+        }
+
+        async function loadBusesForDropdown() {
+            try {
+                const res = await api.get('/buses');
+                if (res && res.success) {
+                    busesList = res.buses;
+                }
+            } catch (e) {}
+        }
+
+        function openAddDriverModal() {
+            document.getElementById('driver-modal').style.display = 'flex';
+        }
+
+        function closeDriverModal() {
+            document.getElementById('driver-modal').style.display = 'none';
+        }
+
+        async function handleCreateDriver(e) {
+            e.preventDefault();
+            const payload = {
+                full_name: document.getElementById('drv-modal-name').value.trim(),
+                employee_id: document.getElementById('drv-modal-empid').value.trim(),
+                license_number: document.getElementById('drv-modal-license').value.trim(),
+                email: document.getElementById('drv-modal-email').value.trim(),
+                mobile_number: document.getElementById('drv-modal-mobile').value.trim(),
+                password: document.getElementById('drv-modal-pass').value
+            };
+
+            try {
+                const res = await api.post('/drivers', payload);
+                if (res && res.success) {
+                    closeDriverModal();
+                    await loadDrivers();
+                } else {
+                    alert(res.message || 'Driver creation failed.');
+                }
+            } catch (err) {
+                console.error('Driver creation error:', err);
+            }
+        }
+
+        function openAssignModal() {
+            const dSelect = document.getElementById('assign-driver-select');
+            const bSelect = document.getElementById('assign-bus-select');
+
+            dSelect.innerHTML = '<option value="">-- Choose Driver --</option>';
+            driversList.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                opt.textContent = `${d.profile ? d.profile.full_name : 'Driver'} (${d.employee_id})`;
+                dSelect.appendChild(opt);
+            });
+
+            bSelect.innerHTML = '<option value="">-- Choose Bus --</option>';
+            busesList.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.id;
+                opt.textContent = `${b.bus_number} (${b.bus_type})`;
+                bSelect.appendChild(opt);
+            });
+
+            document.getElementById('assign-modal').style.display = 'flex';
+        }
+
+        function closeAssignModal() {
+            document.getElementById('assign-modal').style.display = 'none';
+        }
+
+        async function handleAssignBus(e) {
+            e.preventDefault();
+            const driverId = document.getElementById('assign-driver-select').value;
+            const busId = document.getElementById('assign-bus-select').value;
+
+            try {
+                const res = await api.post('/drivers/assign', { driver_id: driverId, bus_id: busId });
+                if (res && res.success) {
+                    closeAssignModal();
+                    await loadDrivers();
+                } else {
+                    alert(res.message || 'Allocation failed.');
+                }
+            } catch (err) {
+                console.error('Allocation error:', err);
+            }
+        }
+    </script>
+</body>
+</html>

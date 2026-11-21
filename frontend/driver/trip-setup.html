@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Driver Trip Setup | Hubballi–Dharwad</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="ksrtc-header">
+        <a href="/driver/trip-setup.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1>KSRTC LOCAL BUS TRACKING</h1>
+                <span>Driver Telemetry Console</span>
+            </div>
+        </a>
+        <button class="btn-logout" onclick="auth.logout()">Logout</button>
+    </header>
+
+    <main class="dashboard-container" style="max-width: 640px;">
+        
+        <div class="content-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                <h2 style="font-size: 1.3rem; color: var(--ksrtc-dark);">🚍 Duty & Trip Initialization</h2>
+                <span class="badge badge-live">Verified Driver</span>
+            </div>
+
+            <div id="alert-box" style="display: none;"></div>
+
+            <!-- Driver Identity Badge -->
+            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="font-size: 0.82rem; color: var(--text-muted);">Operator Name:</span>
+                    <strong id="drv-name" style="color: var(--ksrtc-dark);">Loading...</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="font-size: 0.82rem; color: var(--text-muted);">KSRTC Employee ID:</span>
+                    <strong id="drv-emp-id">-</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="font-size: 0.82rem; color: var(--text-muted);">Driving License:</span>
+                    <strong id="drv-license">-</strong>
+                </div>
+            </div>
+
+            <!-- Trip Setup Form -->
+            <form onsubmit="handleStartJourney(event)">
+                
+                <!-- Assigned Bus -->
+                <div class="form-group">
+                    <label class="form-label">Assigned Vehicle</label>
+                    <input type="text" id="setup-bus-display" class="form-input" style="background: #f8fafc; font-weight: 700; color: var(--ksrtc-dark);" readonly value="Checking assignments...">
+                    <input type="hidden" id="setup-bus-id">
+                </div>
+
+                <!-- Assigned Route -->
+                <div class="form-group">
+                    <label class="form-label">Assigned Route Corridor</label>
+                    <input type="text" id="setup-route-display" class="form-input" style="background: #f8fafc;" readonly value="Checking routes...">
+                    <input type="hidden" id="setup-route-id">
+                </div>
+
+                <!-- Direction / Terminals -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px;">
+                    <div>
+                        <label class="form-label" for="setup-start-stop">Origin Terminal</label>
+                        <select id="setup-start-stop" class="form-select" required>
+                            <option value="">-- Origin Stop --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" for="setup-dest-stop">Destination Terminal</label>
+                        <select id="setup-dest-stop" class="form-select" required>
+                            <option value="">-- Terminating Stop --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Telemetry Operating Mode -->
+                <div class="form-group">
+                    <label class="form-label">GPS Telemetry Mode</label>
+                    <select id="setup-gps-mode" class="form-select">
+                        <option value="real" selected>📱 Real Smartphone GPS (navigator.geolocation)</option>
+                        <option value="simulated">🧪 Simulated GPS (Classroom Demo Backup along Hubballi-Dharwad)</option>
+                    </select>
+                    <small style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 4px;">
+                        Select "Real Smartphone GPS" when streaming live coordinates from this device.
+                    </small>
+                </div>
+
+                <!-- GPS Sensor Status Indicator -->
+                <div style="background: #e0f2fe; border: 1px solid #bae6fd; border-radius: var(--radius-md); padding: 12px; margin-bottom: 20px; font-size: 0.85rem; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.2rem;">📡</span>
+                    <div>
+                        <strong style="color: #0369a1; display: block;">Device Geolocation Sensor:</strong>
+                        <span id="gps-permission-status" style="color: #0284c7;">Checking sensor availability...</span>
+                    </div>
+                </div>
+
+                <button type="submit" id="btn-start-trip" class="btn-primary" style="padding: 14px; font-size: 1.05rem;">
+                    🚀 Start Journey & Transmit GPS
+                </button>
+            </form>
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+
+    <script>
+        let currentAssignment = null;
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('driver');
+            if (!user) return;
+
+            document.getElementById('drv-name').textContent = user.full_name;
+
+            // Check Geolocation Support
+            if ("geolocation" in navigator) {
+                document.getElementById('gps-permission-status').textContent = 'Sensor Ready. Will request browser permission upon clicking Start Journey.';
+            } else {
+                document.getElementById('gps-permission-status').textContent = '⚠️ Geolocation not supported in this browser. Please use Simulated Mode.';
+            }
+
+            await loadDriverAssignment();
+        });
+
+        async function loadDriverAssignment() {
+            try {
+                const res = await api.get('/drivers/my-assignment');
+                if (!res || !res.success || !res.driver) {
+                    showAlert('Failed to load driver profile or assignment records.', 'error');
+                    return;
+                }
+
+                const d = res.driver;
+                document.getElementById('drv-emp-id').textContent = d.employee_id || 'N/A';
+                document.getElementById('drv-license').textContent = d.license_number || 'N/A';
+
+                // Check if trip already in progress
+                if (res.active_trip) {
+                    alert('You have a journey already in progress! Redirecting to live tracking console.');
+                    window.location.href = `/driver/live-trip.html?tripId=${res.active_trip.id}`;
+                    return;
+                }
+
+                if (!res.assignment || !res.assignment.bus) {
+                    showAlert('No bus is currently assigned to your duty roster by administration. Please contact depot supervisor.', 'error');
+                    document.getElementById('btn-start-trip').disabled = true;
+                    return;
+                }
+
+                currentAssignment = res.assignment;
+                const bus = currentAssignment.bus;
+                const route = bus.route;
+
+                document.getElementById('setup-bus-display').value = `${bus.bus_number} (${bus.bus_type})`;
+                document.getElementById('setup-bus-id').value = bus.id;
+
+                if (route) {
+                    document.getElementById('setup-route-display').value = `${route.route_number} - ${route.route_name}`;
+                    document.getElementById('setup-route-id').value = route.id;
+                    populateRouteStops(route.route_stops || []);
+                } else {
+                    document.getElementById('setup-route-display').value = 'Unassigned Route';
+                }
+
+            } catch (err) {
+                console.error('Assignment error:', err);
+                showAlert('Network error while retrieving assigned duty.', 'error');
+            }
+        }
+
+        function populateRouteStops(stops) {
+            const startSelect = document.getElementById('setup-start-stop');
+            const destSelect = document.getElementById('setup-dest-stop');
+
+            startSelect.innerHTML = '<option value="">-- Origin Stop --</option>';
+            destSelect.innerHTML = '<option value="">-- Terminating Stop --</option>';
+
+            stops.forEach((rs, idx) => {
+                const s = rs.stop;
+                if (!s) return;
+
+                const opt1 = document.createElement('option');
+                opt1.value = s.id;
+                opt1.textContent = `${rs.stop_sequence}. ${s.stop_name} (${s.city})`;
+                if (idx === 0) opt1.selected = true;
+                startSelect.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = s.id;
+                opt2.textContent = `${rs.stop_sequence}. ${s.stop_name} (${s.city})`;
+                if (idx === stops.length - 1) opt2.selected = true;
+                destSelect.appendChild(opt2);
+            });
+        }
+
+        function showAlert(msg, type = 'error') {
+            const b = document.getElementById('alert-box');
+            b.className = `alert-box alert-${type}`;
+            b.textContent = msg;
+            b.style.display = 'block';
+        }
+
+        async function handleStartJourney(e) {
+            e.preventDefault();
+
+            const busId = document.getElementById('setup-bus-id').value;
+            const routeId = document.getElementById('setup-route-id').value;
+            const startStopId = document.getElementById('setup-start-stop').value;
+            const destStopId = document.getElementById('setup-dest-stop').value;
+            const gpsMode = document.getElementById('setup-gps-mode').value;
+            const btn = document.getElementById('btn-start-trip');
+
+            if (!startStopId || !destStopId) {
+                alert('Please select origin and terminating stops.');
+                return;
+            }
+
+            if (startStopId === destStopId) {
+                alert('Origin and terminating stops cannot be identical.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Initializing Journey in PostgreSQL...';
+
+            try {
+                const res = await api.post('/trips/start', {
+                    bus_id: busId,
+                    route_id: routeId,
+                    starting_stop_id: startStopId,
+                    destination_stop_id: destStopId,
+                    gps_mode: gpsMode
+                });
+
+                if (!res || !res.success || !res.trip) {
+                    alert(res.message || 'Failed to start trip.');
+                    btn.disabled = false;
+                    btn.textContent = '🚀 Start Journey & Transmit GPS';
+                    return;
+                }
+
+                // Redirect to Live Trip console
+                window.location.href = `/driver/live-trip.html?tripId=${res.trip.id}&mode=${gpsMode}`;
+
+            } catch (err) {
+                console.error('Start journey error:', err);
+                alert('Server communication error.');
+                btn.disabled = false;
+                btn.textContent = '🚀 Start Journey & Transmit GPS';
+            }
+        }
+    </script>
+</body>
+</html>

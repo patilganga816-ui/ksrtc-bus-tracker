@@ -1,0 +1,28 @@
+{
+  "name": "ksrtc-local-bus-tracking-system",
+  "version": "1.0.0",
+  "description": "KSRTC Local Bus Tracking System (Hubballi-Dharwad Corridor) - BE ISE Academic Project",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js"
+  },
+  "keywords": [
+    "ksrtc",
+    "bus-tracking",
+    "hubballi",
+    "dharwad",
+    "supabase",
+    "realtime",
+    "leaflet",
+    "express"
+  ],
+  "author": "BE Information Science & Engineering Project Team",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Bus Fleet Management</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="ksrtc-header">
+        <a href="/admin/dashboard.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1>KSRTC LOCAL BUS TRACKING</h1>
+                <span>Bus Fleet Management</span>
+            </div>
+        </a>
+        <div class="ksrtc-nav-links">
+            <a href="/admin/dashboard.html" class="ksrtc-nav-link">Dashboard</a>
+            <a href="/admin/buses.html" class="ksrtc-nav-link active">Buses</a>
+            <a href="/admin/drivers.html" class="ksrtc-nav-link">Drivers</a>
+            <a href="/admin/routes-stops.html" class="ksrtc-nav-link">Routes & Stops</a>
+            <a href="/admin/live-monitoring.html" class="ksrtc-nav-link">Live Fleet Map</a>
+            <button class="btn-logout" onclick="auth.logout()">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        
+        <div class="content-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 style="font-size: 1.3rem; color: var(--ksrtc-dark);">🚍 Registered Fleet Vehicles</h2>
+                <p style="font-size: 0.85rem; color: var(--text-secondary);">Register vehicles, configure operational types, and bind routes</p>
+            </div>
+            <button type="button" class="btn-primary" onclick="openAddModal()" style="width: auto; padding: 10px 20px;">
+                + Add New Bus
+            </button>
+        </div>
+
+        <!-- Buses Table -->
+        <div class="content-card" style="padding: 0; overflow-x: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Bus Number</th>
+                        <th>Vehicle Type</th>
+                        <th>Assigned Route</th>
+                        <th>Fleet Status</th>
+                        <th>GPS Telemetry</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="buses-table-body">
+                    <tr><td colspan="6" style="text-align: center; padding: 24px;">Loading fleet roster...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Add/Edit Bus Modal -->
+        <div id="bus-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+            <div class="content-card" style="width: 100%; max-width: 480px; margin: 16px;">
+                <h3 id="modal-title" style="margin-bottom: 16px; color: var(--ksrtc-dark);">Register New Bus</h3>
+                
+                <form onsubmit="handleSaveBus(event)">
+                    <input type="hidden" id="edit-bus-id">
+                    
+                    <div class="form-group">
+                        <label class="form-label">Bus Registration Number</label>
+                        <input type="text" id="modal-bus-number" class="form-input" placeholder="e.g. KA-25-F-1025" required style="padding-left: 14px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Bus Type / Class</label>
+                        <select id="modal-bus-type" class="form-select" required>
+                            <option value="Chigari BRTS">Chigari BRTS</option>
+                            <option value="City Ordinary">City Ordinary</option>
+                            <option value="Suvarna Express">Suvarna Express</option>
+                            <option value="Vidyarthi Special">Vidyarthi Special</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Assigned Route</label>
+                        <select id="modal-bus-route" class="form-select">
+                            <option value="">-- No Route Assigned --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Operational Status</label>
+                        <select id="modal-bus-status" class="form-select">
+                            <option value="active">Active</option>
+                            <option value="maintenance">Maintenance</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-top: 20px;">
+                        <button type="submit" class="btn-primary">Save Vehicle</button>
+                        <button type="button" class="btn-primary" onclick="closeModal()" style="background: #e2e8f0; color: #334155;">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+
+    <script>
+        let routesList = [];
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('admin');
+            if (!user) return;
+            await loadRoutesDropdown();
+            await loadBuses();
+        });
+
+        async function loadRoutesDropdown() {
+            try {
+                const res = await api.get('/routes');
+                if (res && res.success) {
+                    routesList = res.routes;
+                    const select = document.getElementById('modal-bus-route');
+                    select.innerHTML = '<option value="">-- No Route Assigned --</option>';
+                    routesList.forEach(r => {
+                        const opt = document.createElement('option');
+                        opt.value = r.id;
+                        opt.textContent = `${r.route_number} - ${r.route_name}`;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (e) {}
+        }
+
+        async function loadBuses() {
+            const tbody = document.getElementById('buses-table-body');
+            try {
+                const res = await api.get('/buses');
+                if (!res || !res.success || res.buses.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">No buses configured in database. Click "+ Add New Bus" to register one.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = res.buses.map(b => {
+                    const isGps = !!(b.active_trip && b.latest_location);
+                    const r = b.route;
+
+                    return `
+                        <tr>
+                            <td><strong style="color: var(--ksrtc-dark);">${b.bus_number}</strong></td>
+                            <td>${b.bus_type}</td>
+                            <td>${r ? `${r.route_number} (${r.source} ➔ ${r.destination})` : '<span style="color: var(--text-muted);">Unassigned</span>'}</td>
+                            <td><span class="badge ${b.status === 'active' ? 'badge-live' : 'badge-stale'}">${b.status.toUpperCase()}</span></td>
+                            <td><span class="badge ${isGps ? 'badge-live' : 'badge-stale'}">${isGps ? '● LIVE' : 'IDLE'}</span></td>
+                            <td>
+                                <button type="button" class="btn-primary" onclick='openEditModal(${JSON.stringify(b)})' style="width: auto; padding: 4px 10px; font-size: 0.78rem; display: inline-block;">Edit</button>
+                                <button type="button" class="btn-logout" onclick="deleteBus('${b.id}')" style="padding: 4px 10px; font-size: 0.78rem; display: inline-block;">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error('Bus list error:', err);
+            }
+        }
+
+        function openAddModal() {
+            document.getElementById('modal-title').textContent = 'Register New Bus';
+            document.getElementById('edit-bus-id').value = '';
+            document.getElementById('modal-bus-number').value = '';
+            document.getElementById('modal-bus-type').value = 'Chigari BRTS';
+            document.getElementById('modal-bus-route').value = '';
+            document.getElementById('modal-bus-status').value = 'active';
+            document.getElementById('bus-modal').style.display = 'flex';
+        }
+
+        function openEditModal(bus) {
+            document.getElementById('modal-title').textContent = `Edit Bus ${bus.bus_number}`;
+            document.getElementById('edit-bus-id').value = bus.id;
+            document.getElementById('modal-bus-number').value = bus.bus_number;
+            document.getElementById('modal-bus-type').value = bus.bus_type;
+            document.getElementById('modal-bus-route').value = bus.route ? bus.route.id : '';
+            document.getElementById('modal-bus-status').value = bus.status;
+            document.getElementById('bus-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('bus-modal').style.display = 'none';
+        }
+
+        async function handleSaveBus(e) {
+            e.preventDefault();
+            const busId = document.getElementById('edit-bus-id').value;
+            const busNumber = document.getElementById('modal-bus-number').value.trim();
+            const busType = document.getElementById('modal-bus-type').value;
+            const routeId = document.getElementById('modal-bus-route').value || null;
+            const status = document.getElementById('modal-bus-status').value;
+
+            try {
+                let res;
+                if (busId) {
+                    res = await api.put(`/buses/${busId}`, { bus_number: busNumber, bus_type: busType, route_id: routeId, status });
+                } else {
+                    res = await api.post('/buses', { bus_number: busNumber, bus_type: busType, route_id: routeId, status });
+                }
+
+                if (res && res.success) {
+                    closeModal();
+                    await loadBuses();
+                } else {
+                    alert(res.message || 'Save failed.');
+                }
+            } catch (err) {
+                console.error('Save bus error:', err);
+            }
+        }
+
+        async function deleteBus(id) {
+            if (!confirm('Are you sure you want to delete this bus record?')) return;
+            try {
+                const res = await api.delete(`/buses/${id}`);
+                if (res && res.success) await loadBuses();
+                else alert(res.message || 'Delete failed.');
+            } catch (err) {
+                console.error('Delete error:', err);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Favourite Buses & Routes</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="ksrtc-header">
+        <a href="/passenger/home.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1 data-i18n="appName">KSRTC LOCAL BUS TRACKING</h1>
+                <span data-i18n="navFavourites">Saved Favourites</span>
+            </div>
+        </a>
+        <div class="ksrtc-nav-links">
+            <a href="/passenger/home.html" class="ksrtc-nav-link" data-i18n="navHome">Home</a>
+            <a href="/passenger/favourites.html" class="ksrtc-nav-link active" data-i18n="navFavourites">Favourites</a>
+            <a href="/passenger/account.html" class="ksrtc-nav-link" data-i18n="navAccount">Account</a>
+            <!-- Language Selector -->
+            <div class="ksrtc-lang-container"></div>
+            <button class="btn-logout" onclick="auth.logout()" data-i18n="navLogout">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        <div class="content-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 style="font-size: 1.3rem; color: var(--ksrtc-dark);" data-i18n="favouritesTitle">⭐ My Favourite Routes & Buses</h2>
+                <p style="font-size: 0.85rem; color: var(--text-secondary);" data-i18n="favouritesSub">Quick-launch live tracking for frequently commuted services</p>
+            </div>
+            <a href="/passenger/home.html" class="btn-primary" style="width: auto; padding: 8px 18px; text-decoration: none;" data-i18n="btnBrowseBuses">+ Browse Buses</a>
+        </div>
+
+        <div id="favourites-list" style="display: flex; flex-direction: column; gap: 14px;">
+            <!-- Populated dynamically -->
+        </div>
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/i18n.js"></script>
+
+    <script>
+        let cachedFavs = [];
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('passenger');
+            if (!user) return;
+            await loadFavourites();
+        });
+
+        window.addEventListener('ksrtc:languageChanged', () => {
+            renderFavouritesList();
+        });
+
+        async function loadFavourites() {
+            try {
+                const res = await api.get('/passengers/favourites');
+                if (res && res.success) {
+                    cachedFavs = res.favourites || [];
+                    renderFavouritesList();
+                }
+            } catch (err) {
+                console.error('Failed to load favourites:', err);
+            }
+        }
+
+        function renderFavouritesList() {
+            const container = document.getElementById('favourites-list');
+            if (!cachedFavs || cachedFavs.length === 0) {
+                container.innerHTML = `
+                    <div class="content-card" style="text-align: center; padding: 48px;">
+                        <div style="font-size: 2.5rem; margin-bottom: 12px;">⭐</div>
+                        <h3 style="color: var(--ksrtc-dark); margin-bottom: 6px;">${i18n.t('noFavsTitle')}</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 16px;">${i18n.t('noFavsSub')}</p>
+                        <a href="/passenger/home.html" class="btn-primary" style="display: inline-flex; width: auto; padding: 10px 24px; text-decoration: none;">
+                            ${i18n.t('btnExploreRoutes')}
+                        </a>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = cachedFavs.map(fav => {
+                const r = fav.route;
+                const b = fav.bus;
+                const title = b ? b.bus_number : (r ? `${r.route_number} - ${r.route_name}` : 'Transit Item');
+                const srcName = r ? i18n.getStopName(r.source) : '';
+                const dstName = r ? i18n.getStopName(r.destination) : '';
+                const subtitle = b ? `${i18n.t('typeLabel')}: ${b.bus_type}` : (r ? `${srcName} ➔ ${dstName}` : '');
+
+                return `
+                    <div class="content-card" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0;">
+                        <div>
+                            <h3 style="font-size: 1.15rem; color: var(--ksrtc-dark); font-weight: 700; margin-bottom: 4px;">${title}</h3>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary);">${subtitle}</p>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            ${b ? `<a href="/passenger/live-tracking.html?busId=${b.id}" class="btn-primary" style="width: auto; padding: 8px 16px; text-decoration: none;">${i18n.t('btnLiveTrack')}</a>` : ''}
+                            ${r ? `<a href="/passenger/route-details.html?routeId=${r.id}" class="btn-primary" style="width: auto; padding: 8px 16px; text-decoration: none;">${i18n.t('btnRouteInfo')}</a>` : ''}
+                            <button type="button" class="btn-logout" onclick="deleteFav('${fav.id}')" style="padding: 8px 14px;">${i18n.t('btnRemove')}</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function deleteFav(id) {
+            if (!confirm(i18n.t('confirmRemoveFav'))) return;
+            try {
+                const res = await api.delete(`/passengers/favourites/${id}`);
+                if (res && res.success) {
+                    await loadFavourites();
+                }
+            } catch (e) {
+                console.error('Delete favourite error:', e);
+            }
+        }
+    </script>
+</body>
+</html>

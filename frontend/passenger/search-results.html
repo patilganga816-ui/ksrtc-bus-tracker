@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Bus Search Results | Hubballi–Dharwad</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="ksrtc-header">
+        <a href="/passenger/home.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1 data-i18n="appName">KSRTC LOCAL BUS TRACKING</h1>
+                <span data-i18n="searchResultsTitle">Bus Search Results</span>
+            </div>
+        </a>
+        <div class="ksrtc-nav-links">
+            <a href="/passenger/home.html" class="ksrtc-nav-link" data-i18n="navHome">Home</a>
+            <a href="/passenger/favourites.html" class="ksrtc-nav-link" data-i18n="navFavourites">Favourites</a>
+            <a href="/passenger/account.html" class="ksrtc-nav-link" data-i18n="navAccount">Account</a>
+            <!-- Language Selector -->
+            <div class="ksrtc-lang-container"></div>
+            <button class="btn-logout" onclick="auth.logout()" data-i18n="navLogout">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        
+        <!-- Search Context Header -->
+        <div class="content-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <a href="/passenger/home.html" style="color: var(--ksrtc-primary); text-decoration: none; font-size: 0.85rem; font-weight: 600;" data-i18n="modifySearch">← Modify Search</a>
+                <h2 id="search-title" style="font-size: 1.3rem; color: var(--ksrtc-dark); margin-top: 4px;">Searching Buses...</h2>
+                <p id="search-subtext" style="font-size: 0.85rem; color: var(--text-secondary);"></p>
+            </div>
+            <span id="results-count-badge" class="badge badge-live" data-i18n="scanningRoutes">Scanning routes...</span>
+        </div>
+
+        <!-- Search Results Grid -->
+        <div id="results-container" style="display: flex; flex-direction: column; gap: 16px;">
+            <!-- Rendered dynamically -->
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/eta-calculator.js"></script>
+
+    <script>
+        let currentSearchMode = 'stops'; // 'stops' or 'query'
+        let cachedBuses = [];
+        let boardingStopObj = null;
+        let destStopObj = null;
+        let fromStopIdGlobal = null;
+        let toStopIdGlobal = null;
+        let directQueryGlobal = null;
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('passenger');
+            if (!user) return;
+
+            const params = new URLSearchParams(window.location.search);
+            fromStopIdGlobal = params.get('from');
+            toStopIdGlobal = params.get('to');
+            directQueryGlobal = params.get('q');
+
+            if (fromStopIdGlobal && toStopIdGlobal) {
+                currentSearchMode = 'stops';
+                await searchBetweenStops(fromStopIdGlobal, toStopIdGlobal);
+            } else if (directQueryGlobal) {
+                currentSearchMode = 'query';
+                await searchDirectQuery(directQueryGlobal);
+            } else {
+                window.location.href = '/passenger/home.html';
+            }
+        });
+
+        window.addEventListener('ksrtc:languageChanged', () => {
+            if (currentSearchMode === 'stops') {
+                renderStopsHeader();
+                renderBusesList();
+            } else {
+                renderDirectQueryHeader();
+                renderBusesList();
+            }
+        });
+
+        async function searchBetweenStops(fromId, toId) {
+            try {
+                // Fetch verified stop details for header display & distance computation
+                const stopsRes = await api.get('/routes/stops/all');
+                if (stopsRes && stopsRes.success) {
+                    boardingStopObj = stopsRes.stops.find(s => s.id === fromId) || null;
+                    destStopObj = stopsRes.stops.find(s => s.id === toId) || null;
+                }
+
+                renderStopsHeader();
+
+                // Execute stop-pair search
+                const res = await api.get('/buses/search-by-stops', {
+                    boarding_stop_id: fromId,
+                    destination_stop_id: toId
+                });
+
+                if (!res || !res.success || !res.buses || res.buses.length === 0) {
+                    cachedBuses = [];
+                    renderEmptyResults();
+                    return;
+                }
+
+                cachedBuses = res.buses;
+                renderBusesList();
+
+            } catch (err) {
+                console.error('Search between stops failed:', err);
+                renderEmptyResults();
+            }
+        }
+
+        async function searchDirectQuery(q) {
+            try {
+                renderDirectQueryHeader();
+                const res = await api.get('/buses/search', { query: q });
+                if (!res || !res.success || !res.buses || res.buses.length === 0) {
+                    cachedBuses = [];
+                    renderEmptyResults();
+                    return;
+                }
+
+                cachedBuses = res.buses;
+                renderBusesList();
+            } catch (err) {
+                console.error('Direct query search failed:', err);
+                renderEmptyResults();
+            }
+        }
+
+        function renderStopsHeader() {
+            const titleEl = document.getElementById('search-title');
+            const subtextEl = document.getElementById('search-subtext');
+            const fromName = boardingStopObj ? i18n.getStopName(boardingStopObj.stop_name) : 'Selected Stop';
+            const toName = destStopObj ? i18n.getStopName(destStopObj.stop_name) : 'Destination';
+
+            titleEl.textContent = `${fromName} ➔ ${toName}`;
+            subtextEl.textContent = i18n.t('showingBusesSub');
+        }
+
+        function renderDirectQueryHeader() {
+            const titleEl = document.getElementById('search-title');
+            const subtextEl = document.getElementById('search-subtext');
+            titleEl.textContent = `Search: "${directQueryGlobal || ''}"`;
+            subtextEl.textContent = i18n.t('showingBusesSub');
+        }
+
+        function renderEmptyResults() {
+            const badgeEl = document.getElementById('results-count-badge');
+            const container = document.getElementById('results-container');
+            const fromName = boardingStopObj ? i18n.getStopName(boardingStopObj.stop_name) : 'origin';
+            const toName = destStopObj ? i18n.getStopName(destStopObj.stop_name) : 'destination';
+
+            badgeEl.textContent = i18n.t('busesAvailableBadge', { count: 0 });
+            badgeEl.className = 'badge badge-stale';
+
+            container.innerHTML = `
+                <div class="content-card" style="text-align: center; padding: 48px;">
+                    <div style="font-size: 2.5rem; margin-bottom: 12px;">🚏</div>
+                    <h3 style="color: var(--ksrtc-dark); margin-bottom: 8px;">${i18n.t('noDirectBusesTitle')}</h3>
+                    <p style="color: var(--text-secondary); max-width: 450px; margin: 0 auto 16px;">
+                        ${i18n.t('noDirectBusesSub', { from: fromName, to: toName })}
+                    </p>
+                    <a href="/passenger/home.html" class="btn-primary" style="display: inline-flex; width: auto; padding: 10px 24px; text-decoration: none;">
+                        ${i18n.t('btnTryAnotherSearch')}
+                    </a>
+                </div>
+            `;
+        }
+
+        function renderBusesList() {
+            const badgeEl = document.getElementById('results-count-badge');
+            const container = document.getElementById('results-container');
+
+            if (!cachedBuses || cachedBuses.length === 0) {
+                renderEmptyResults();
+                return;
+            }
+
+            badgeEl.textContent = i18n.t('busesAvailableBadge', { count: cachedBuses.length });
+            badgeEl.className = 'badge badge-live';
+
+            const fromName = boardingStopObj ? i18n.getStopName(boardingStopObj.stop_name) : '-';
+            const toName = destStopObj ? i18n.getStopName(destStopObj.stop_name) : '-';
+
+            container.innerHTML = cachedBuses.map(bus => {
+                const isGpsActive = bus.gps_active || (bus.active_trip && bus.latest_location);
+                const r = bus.route;
+
+                // Compute or retrieve live Distance & ETA to passenger's boarding stop
+                let etaInfo = bus.eta_info;
+                if (!etaInfo && boardingStopObj && bus.latest_location) {
+                    etaInfo = ETACalculator.calculate(bus.latest_location, boardingStopObj, [], bus.bus_type);
+                }
+
+                let etaDisplayHtml = '';
+                if (boardingStopObj) {
+                    const formattedDist = ETACalculator.formatDistance(etaInfo);
+                    const formattedETA = ETACalculator.formatETA(etaInfo);
+                    const isPassed = etaInfo && etaInfo.passedStop;
+                    const isStale = etaInfo && etaInfo.isStale;
+                    const isOk = etaInfo && (etaInfo.status === 'OK' || etaInfo.status === 'ARRIVING_NOW');
+
+                    let badgeClass = 'badge-stale';
+                    if (isPassed) badgeClass = 'badge-passed';
+                    else if (isOk) badgeClass = 'badge-live';
+
+                    etaDisplayHtml = `
+                        <div class="eta-distance-banner" style="margin-top: 12px; padding: 12px 16px;">
+                            <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap;">
+                                <div>
+                                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: block; font-weight: 600; text-transform: uppercase;">
+                                        ⏱️ ${i18n.t('etaTitle')}
+                                    </span>
+                                    <strong style="font-size: 1.15rem; color: ${isOk ? '#15803d' : (isPassed ? '#b91c1c' : '#334155')};">
+                                        ${formattedETA}
+                                    </strong>
+                                </div>
+                                <div style="border-left: 1px solid #cbd5e1; height: 26px;"></div>
+                                <div>
+                                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: block; font-weight: 600; text-transform: uppercase;">
+                                        📏 ${i18n.t('distanceTitle')}
+                                    </span>
+                                    <strong style="font-size: 1.1rem; color: var(--ksrtc-dark);">
+                                        ${formattedDist}
+                                    </strong>
+                                    ${etaInfo && etaInfo.isRouteBased ? `
+                                        <span class="badge-route-dist" style="margin-left: 6px;">${i18n.t('routeBasedDistBadge')}</span>
+                                    ` : (isOk ? `<span class="badge-route-dist" style="margin-left: 6px;">${i18n.t('straightLineDistBadge')}</span>` : '')}
+                                </div>
+                            </div>
+                            <span class="badge ${badgeClass}" style="align-self: center;">
+                                ${isPassed ? i18n.t('stopPassed') : (isGpsActive ? i18n.t('statusLiveGps') : i18n.t('statusIdle'))}
+                            </span>
+                        </div>
+                    `;
+                }
+
+                const trackUrl = fromStopIdGlobal && toStopIdGlobal 
+                    ? `/passenger/live-tracking.html?busId=${bus.id}&from=${fromStopIdGlobal}&to=${toStopIdGlobal}`
+                    : `/passenger/live-tracking.html?busId=${bus.id}`;
+
+                return `
+                    <div class="content-card" style="margin-bottom: 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                                    <h3 style="font-size: 1.25rem; color: var(--ksrtc-dark); font-weight: 700;">${bus.bus_number}</h3>
+                                    <span class="badge" style="background: #e0f2fe; color: #0369a1;">${bus.bus_type}</span>
+                                    <span class="badge ${isGpsActive ? 'badge-live' : 'badge-stale'}">
+                                        ${isGpsActive ? i18n.t('statusLiveGps') : i18n.t('statusIdle')}
+                                    </span>
+                                </div>
+                                <p style="font-size: 0.9rem; color: var(--text-secondary);">
+                                    <strong>${i18n.t('routeLabel')} ${r ? r.route_number : ''}:</strong> ${r ? r.route_name : 'Local Service'}
+                                </p>
+                            </div>
+
+                            <div style="display: flex; gap: 10px;">
+                                <a href="${trackUrl}" class="btn-primary" style="width: auto; padding: 10px 20px; text-decoration: none;">
+                                    ${i18n.t('btnTrackLiveBus')}
+                                </a>
+                                ${r ? `
+                                    <a href="/passenger/route-details.html?routeId=${r.id}" class="btn-primary" style="width: auto; padding: 10px 18px; background: #e2e8f0; color: #1e293b; text-decoration: none;">
+                                        ${i18n.t('btnRouteStops')}
+                                    </a>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        ${boardingStopObj ? `
+                            <div style="background: #f8fafc; border-radius: var(--radius-md); padding: 12px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 0.85rem;">
+                                <div>
+                                    <span style="color: var(--text-muted); display: block;">${i18n.t('boardingAt')}</span>
+                                    <strong style="color: #16a34a;">🟢 ${fromName}</strong>
+                                </div>
+                                <div>
+                                    <span style="color: var(--text-muted); display: block;">${i18n.t('alightingAt')}</span>
+                                    <strong style="color: #dc2626;">🔴 ${toName}</strong>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${etaDisplayHtml}
+                    </div>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>

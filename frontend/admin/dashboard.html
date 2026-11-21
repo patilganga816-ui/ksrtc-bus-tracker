@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Depot Administrator Dashboard</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="ksrtc-header">
+        <a href="/admin/dashboard.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1>KSRTC LOCAL BUS TRACKING</h1>
+                <span>Depot Administration • Hubballi–Dharwad</span>
+            </div>
+        </a>
+        <div class="ksrtc-nav-links">
+            <a href="/admin/dashboard.html" class="ksrtc-nav-link active">Dashboard</a>
+            <a href="/admin/buses.html" class="ksrtc-nav-link">Buses</a>
+            <a href="/admin/drivers.html" class="ksrtc-nav-link">Drivers</a>
+            <a href="/admin/routes-stops.html" class="ksrtc-nav-link">Routes & Stops</a>
+            <a href="/admin/live-monitoring.html" class="ksrtc-nav-link">Live Fleet Map</a>
+            <a href="/admin/passengers.html" class="ksrtc-nav-link">Passengers</a>
+            <a href="/admin/trips-reports.html" class="ksrtc-nav-link">Reports</a>
+            <button class="btn-logout" onclick="auth.logout()">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        
+        <!-- Welcome Card -->
+        <div class="content-card" style="background: linear-gradient(135deg, #002b5c 0%, #0056b3 100%); color: #ffffff; padding: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <h2 style="font-size: 1.4rem; margin-bottom: 4px;">Depot Operations Center</h2>
+                    <p style="color: #bae6fd; font-size: 0.88rem;">Real-time metrics sourced directly from Supabase PostgreSQL</p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <a href="/admin/live-monitoring.html" class="btn-primary" style="background: #ffffff; color: var(--ksrtc-primary); text-decoration: none; padding: 8px 18px; font-weight: 700;">
+                        🗺️ Launch Live Fleet Map
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real Database KPI Statistics Grid -->
+        <div class="stats-grid">
+            <div class="stat-card" style="border-left-color: #0284c7;">
+                <h3>Total Fleet Buses</h3>
+                <div class="stat-number" id="stat-buses">-</div>
+                <small style="color: var(--text-muted);">Registered in Depot</small>
+            </div>
+            <div class="stat-card" style="border-left-color: #16a34a;">
+                <h3>Active Trips Now</h3>
+                <div class="stat-number" id="stat-active-trips" style="color: #16a34a;">-</div>
+                <small style="color: var(--text-muted);">Buses in transit</small>
+            </div>
+            <div class="stat-card" style="border-left-color: #f59e0b;">
+                <h3>GPS-Active Buses</h3>
+                <div class="stat-number" id="stat-gps-buses" style="color: #f59e0b;">-</div>
+                <small style="color: var(--text-muted);">Streaming telemetry</small>
+            </div>
+            <div class="stat-card" style="border-left-color: #6366f1;">
+                <h3>Authorized Drivers</h3>
+                <div class="stat-number" id="stat-drivers">-</div>
+                <small style="color: var(--text-muted);">Rostered personnel</small>
+            </div>
+            <div class="stat-card" style="border-left-color: #8b5cf6;">
+                <h3>Transit Routes</h3>
+                <div class="stat-number" id="stat-routes">-</div>
+                <small style="color: var(--text-muted);">Configured corridors</small>
+            </div>
+            <div class="stat-card" style="border-left-color: #ec4899;">
+                <h3>Bus Stops</h3>
+                <div class="stat-number" id="stat-stops">-</div>
+                <small style="color: var(--text-muted);">Hubballi & Dharwad</small>
+            </div>
+            <div class="stat-card" style="border-left-color: #14b8a6;">
+                <h3>Registered Commuters</h3>
+                <div class="stat-number" id="stat-passengers">-</div>
+                <small style="color: var(--text-muted);">Passenger profiles</small>
+            </div>
+        </div>
+
+        <!-- Quick Administration Modules -->
+        <div class="content-card">
+            <h3 style="font-size: 1.1rem; color: var(--ksrtc-dark); margin-bottom: 16px;">🛠️ Management Modules</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+                <a href="/admin/buses.html" style="text-decoration: none; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: block; transition: transform 0.2s; background: #ffffff;">
+                    <strong style="color: var(--ksrtc-primary); font-size: 1rem; display: block; margin-bottom: 4px;">🚍 Bus Management</strong>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">Register vehicles, assign routes, maintain status</span>
+                </a>
+                <a href="/admin/drivers.html" style="text-decoration: none; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: block; transition: transform 0.2s; background: #ffffff;">
+                    <strong style="color: var(--ksrtc-primary); font-size: 1rem; display: block; margin-bottom: 4px;">👨‍✈️ Driver Management</strong>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">Authorize driver accounts and assign duty buses</span>
+                </a>
+                <a href="/admin/routes-stops.html" style="text-decoration: none; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: block; transition: transform 0.2s; background: #ffffff;">
+                    <strong style="color: var(--ksrtc-primary); font-size: 1rem; display: block; margin-bottom: 4px;">🚏 Routes & Stops</strong>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">Map-based stop coordinate picker and sequence organizer</span>
+                </a>
+                <a href="/admin/live-monitoring.html" style="text-decoration: none; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: block; transition: transform 0.2s; background: #ffffff;">
+                    <strong style="color: var(--ksrtc-primary); font-size: 1rem; display: block; margin-bottom: 4px;">🗺️ Live Fleet Monitoring</strong>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">Real-time Hubballi-Dharwad interactive tracking map</span>
+                </a>
+                <a href="/admin/passengers.html" style="text-decoration: none; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: block; transition: transform 0.2s; background: #ffffff;">
+                    <strong style="color: var(--ksrtc-primary); font-size: 1rem; display: block; margin-bottom: 4px;">👥 Passenger Directory</strong>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">View registered users and manage account status</span>
+                </a>
+                <a href="/admin/trips-reports.html" style="text-decoration: none; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: block; transition: transform 0.2s; background: #ffffff;">
+                    <strong style="color: var(--ksrtc-primary); font-size: 1rem; display: block; margin-bottom: 4px;">📊 Trip Reports & CSV</strong>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">Historical logs, durations, and audit export</span>
+                </a>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('admin');
+            if (!user) return;
+            await loadKPIStats();
+        });
+
+        async function loadKPIStats() {
+            try {
+                // Fetch Buses
+                const bRes = await api.get('/buses');
+                if (bRes && bRes.success) {
+                    document.getElementById('stat-buses').textContent = bRes.count || 0;
+                }
+
+                // Fetch Active Trips & GPS active count
+                const tRes = await api.get('/trips/active');
+                if (tRes && tRes.success) {
+                    document.getElementById('stat-active-trips').textContent = tRes.count || 0;
+                    const gpsCount = tRes.trips.filter(t => !!t.latest_location).length;
+                    document.getElementById('stat-gps-buses').textContent = gpsCount;
+                }
+
+                // Fetch Drivers
+                const dRes = await api.get('/drivers');
+                if (dRes && dRes.success) {
+                    document.getElementById('stat-drivers').textContent = dRes.count || 0;
+                }
+
+                // Fetch Routes
+                const rRes = await api.get('/routes');
+                if (rRes && rRes.success) {
+                    document.getElementById('stat-routes').textContent = rRes.count || 0;
+                }
+
+                // Fetch Stops
+                const sRes = await api.get('/routes/stops/all');
+                if (sRes && sRes.success) {
+                    document.getElementById('stat-stops').textContent = sRes.count || 0;
+                }
+
+                // Fetch Passengers
+                const pRes = await api.get('/passengers');
+                if (pRes && pRes.success) {
+                    document.getElementById('stat-passengers').textContent = pRes.count || 0;
+                }
+
+            } catch (err) {
+                console.error('KPI error:', err);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Driver Live Trip Console | Streaming GPS</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <!-- Leaflet CSS & JS for Driver Navigation Preview -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="ksrtc-header">
+        <div class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1>KSRTC LOCAL BUS TRACKING</h1>
+                <span>Live GPS Telemetry Console</span>
+            </div>
+        </div>
+        <div class="badge badge-live" style="background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.4);">
+            ● LIVE SATELLITE STREAM
+        </div>
+    </header>
+
+    <main class="dashboard-container" style="max-width: 800px; padding-top: 14px;">
+        
+        <!-- Live Duty Telemetry HUD -->
+        <div class="content-card" style="border-top: 5px solid #16a34a; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <h2 id="hud-bus-number" style="font-size: 1.35rem; color: var(--ksrtc-dark); font-weight: 700;">Vehicle: KA-25-F-...</h2>
+                        <span id="hud-mode-badge" class="badge badge-live">REAL SMARTPHONE GPS</span>
+                    </div>
+                    <p id="hud-route-name" style="font-size: 0.88rem; color: var(--text-secondary);">Route: Hubballi CBT to Dharwad CBT</p>
+                </div>
+
+                <div style="display: flex; gap: 16px; font-size: 0.85rem; align-items: center;">
+                    <div style="text-align: right;">
+                        <span style="color: var(--text-muted); display: block;">Elapsed Duty Time</span>
+                        <strong id="hud-trip-timer" style="font-size: 1.15rem; color: var(--ksrtc-dark); font-family: monospace;">00:00:00</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coordinate Telemetry Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Current Latitude</span>
+                    <strong id="hud-lat" style="font-size: 1rem; color: var(--text-primary); font-family: monospace;">0.0000000</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Current Longitude</span>
+                    <strong id="hud-lng" style="font-size: 1rem; color: var(--text-primary); font-family: monospace;">0.0000000</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">GPS Speed</span>
+                    <strong id="hud-speed" style="font-size: 1rem; color: #0284c7;">0.0 km/h</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Sensor Accuracy</span>
+                    <strong id="hud-accuracy" style="font-size: 1rem; color: #16a34a;">± 0 m</strong>
+                </div>
+            </div>
+
+            <!-- Transmission Status -->
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; margin-bottom: 16px;">
+                <span id="hud-transmission-status" style="color: #16a34a; font-weight: 600;">
+                    ✓ Transmitting live telemetry to Supabase Realtime
+                </span>
+                <span id="hud-packets-count" style="color: var(--text-muted);">
+                    Packets Delivered: 0
+                </span>
+            </div>
+
+            <!-- Driver Actions -->
+            <div style="display: flex; gap: 12px;">
+                <button type="button" id="btn-toggle-gps" class="btn-primary" onclick="toggleGPSStream()" style="background: #e2e8f0; color: #1e293b;">
+                    ⏸️ Pause Sharing
+                </button>
+                <button type="button" id="btn-end-trip" class="btn-logout" onclick="handleEndTrip()" style="flex: 2; padding: 12px; font-weight: 700; font-size: 0.95rem;">
+                    🛑 End Journey (Complete Trip)
+                </button>
+            </div>
+        </div>
+
+        <!-- Driver Map Preview -->
+        <div class="content-card" style="padding: 0; overflow: hidden;">
+            <div id="driver-map" style="width: 100%; height: 360px;"></div>
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/map-helper.js"></script>
+
+    <script>
+        let tripId = null;
+        let busId = null;
+        let gpsMode = 'real';
+        let watchId = null;
+        let simInterval = null;
+        let timerInterval = null;
+        let simStep = 0;
+        let deliveredPackets = 0;
+        let isSharingPaused = false;
+        let tripStartTime = new Date();
+
+        let mapInstance = null;
+        let driverMarker = null;
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('driver');
+            if (!user) return;
+
+            const params = new URLSearchParams(window.location.search);
+            tripId = params.get('tripId');
+            gpsMode = params.get('mode') || 'real';
+
+            if (!tripId) {
+                alert('No active trip specified.');
+                window.location.href = '/driver/trip-setup.html';
+                return;
+            }
+
+            // Initialize Map
+            mapInstance = MapHelper.initMap('driver-map', { zoom: 14 });
+
+            // Load trip metadata
+            await loadTripContext();
+
+            // Start clock timer
+            timerInterval = setInterval(updateTimerHUD, 1000);
+
+            // Start Telemetry based on mode
+            if (gpsMode === 'simulated') {
+                startSimulatedGPS();
+            } else {
+                startRealGPSWatch();
+            }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            stopTelemetry();
+            if (timerInterval) clearInterval(timerInterval);
+        });
+
+        async function loadTripContext() {
+            try {
+                const res = await api.get('/trips/active');
+                if (res && res.success) {
+                    const current = res.trips.find(t => t.id === tripId);
+                    if (current) {
+                        busId = current.bus.id;
+                        document.getElementById('hud-bus-number').textContent = `Vehicle: ${current.bus.bus_number}`;
+                        document.getElementById('hud-route-name').textContent = 
+                            `Route: ${current.route ? current.route.route_name : 'Hubballi–Dharwad'}`;
+                        if (current.start_time) tripStartTime = new Date(current.start_time);
+                    }
+                }
+
+                if (gpsMode === 'simulated') {
+                    const badge = document.getElementById('hud-mode-badge');
+                    badge.textContent = 'SIMULATED GPS';
+                    badge.className = 'badge badge-simulated';
+                }
+            } catch (err) {
+                console.error('Trip load error:', err);
+            }
+        }
+
+        // 1. Real GPS: navigator.geolocation.watchPosition()
+        function startRealGPSWatch() {
+            if (!("geolocation" in navigator)) {
+                alert('Geolocation API not supported. Switching to simulation mode.');
+                startSimulatedGPS();
+                return;
+            }
+
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 2000
+            };
+
+            watchId = navigator.geolocation.watchPosition(
+                async (position) => {
+                    if (isSharingPaused) return;
+
+                    const coords = position.coords;
+                    const lat = coords.latitude;
+                    const lng = coords.longitude;
+                    const speed = coords.speed !== null ? (coords.speed * 3.6) : 0; // m/s to km/h
+                    const heading = coords.heading || 0;
+                    const accuracy = coords.accuracy;
+
+                    updateHUD(lat, lng, speed, accuracy);
+
+                    // Transmit to backend
+                    await sendCoordinates({
+                        bus_id: busId,
+                        trip_id: tripId,
+                        latitude: lat,
+                        longitude: lng,
+                        speed: speed,
+                        heading: heading,
+                        accuracy: accuracy,
+                        gps_timestamp: new Date(position.timestamp).toISOString()
+                    });
+                },
+                (error) => {
+                    handleGPSError(error);
+                },
+                options
+            );
+        }
+
+        // 2. Simulated GPS Backup (For college classroom evaluations)
+        function startSimulatedGPS() {
+            simInterval = setInterval(async () => {
+                if (isSharingPaused || !busId) return;
+
+                try {
+                    const res = await api.post('/locations/simulate', {
+                        trip_id: tripId,
+                        bus_id: busId,
+                        step_index: simStep
+                    });
+
+                    if (res && res.success && res.location) {
+                        simStep = res.next_step_index;
+                        const loc = res.location;
+                        updateHUD(loc.latitude, loc.longitude, loc.speed, loc.accuracy);
+                        deliveredPackets++;
+                        document.getElementById('hud-packets-count').textContent = `Packets Delivered: ${deliveredPackets}`;
+                        document.getElementById('hud-transmission-status').textContent = 
+                            `✓ Broadcast waypoint: ${res.current_stop || 'Corridor'}`;
+                    }
+                } catch (e) {
+                    console.error('Sim error:', e);
+                }
+            }, 3000); // 3-second heartbeat
+        }
+
+        async function sendCoordinates(payload) {
+            try {
+                const res = await api.post('/locations/update', payload);
+                if (res && res.success) {
+                    deliveredPackets++;
+                    document.getElementById('hud-packets-count').textContent = `Packets Delivered: ${deliveredPackets}`;
+                    document.getElementById('hud-transmission-status').textContent = 
+                        `✓ Telemetry confirmed by Supabase at ${new Date().toLocaleTimeString()}`;
+                    document.getElementById('hud-transmission-status').style.color = '#16a34a';
+                } else {
+                    document.getElementById('hud-transmission-status').textContent = 
+                        `⚠️ Packet rejected: ${res.message || 'Validation error'}`;
+                    document.getElementById('hud-transmission-status').style.color = '#ea580c';
+                }
+            } catch (err) {
+                document.getElementById('hud-transmission-status').textContent = '⚠️ Network reconnecting...';
+                document.getElementById('hud-transmission-status').style.color = '#ef4444';
+            }
+        }
+
+        function updateHUD(lat, lng, speed, accuracy) {
+            document.getElementById('hud-lat').textContent = parseFloat(lat).toFixed(6);
+            document.getElementById('hud-lng').textContent = parseFloat(lng).toFixed(6);
+            document.getElementById('hud-speed').textContent = `${parseFloat(speed || 0).toFixed(1)} km/h`;
+            document.getElementById('hud-accuracy').textContent = `± ${Math.round(accuracy || 0)} m`;
+
+            // Update map marker
+            if (!driverMarker) {
+                driverMarker = L.marker([lat, lng], {
+                    icon: MapHelper.createBusIcon('MY BUS', 0, gpsMode === 'simulated')
+                }).addTo(mapInstance);
+                mapInstance.setView([lat, lng], 15);
+            } else {
+                driverMarker.setLatLng([lat, lng]);
+                mapInstance.panTo([lat, lng]);
+            }
+        }
+
+        function handleGPSError(err) {
+            let msg = 'GPS sensor error';
+            if (err.code === err.PERMISSION_DENIED) {
+                msg = 'GPS permission denied by user. Please enable location in browser settings.';
+            } else if (err.code === err.POSITION_UNAVAILABLE) {
+                msg = 'GPS signal unavailable. Ensure location service is on.';
+            } else if (err.code === err.TIMEOUT) {
+                msg = 'GPS request timed out. Retrying...';
+            }
+            document.getElementById('hud-transmission-status').textContent = `⚠️ ${msg}`;
+            document.getElementById('hud-transmission-status').style.color = '#ef4444';
+        }
+
+        function toggleGPSStream() {
+            isSharingPaused = !isSharingPaused;
+            const btn = document.getElementById('btn-toggle-gps');
+            if (isSharingPaused) {
+                btn.textContent = '▶️ Resume Sharing';
+                btn.style.background = '#fef3c7';
+                document.getElementById('hud-transmission-status').textContent = '⏸️ Telemetry sharing paused by driver';
+            } else {
+                btn.textContent = '⏸️ Pause Sharing';
+                btn.style.background = '#e2e8f0';
+            }
+        }
+
+        function stopTelemetry() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            if (simInterval) {
+                clearInterval(simInterval);
+                simInterval = null;
+            }
+        }
+
+        async function handleEndTrip() {
+            if (!confirm('Are you sure you want to complete and end this journey? GPS transmission will immediately cease.')) {
+                return;
+            }
+
+            stopTelemetry();
+
+            const btn = document.getElementById('btn-end-trip');
+            btn.disabled = true;
+            btn.textContent = 'Finalizing Journey in PostgreSQL...';
+
+            try {
+                const res = await api.post('/trips/end', { trip_id: tripId });
+
+                if (res && res.success) {
+                    window.location.href = `/driver/trip-ended.html?tripId=${tripId}`;
+                } else {
+                    alert(res.message || 'Failed to complete trip.');
+                    btn.disabled = false;
+                    btn.textContent = '🛑 End Journey';
+                }
+            } catch (err) {
+                console.error('End trip error:', err);
+                alert('Server error while ending trip.');
+                btn.disabled = false;
+            }
+        }
+
+        function updateTimerHUD() {
+            const now = new Date();
+            const diff = Math.max(0, Math.floor((now - tripStartTime) / 1000));
+            const hrs = String(Math.floor(diff / 3600)).padStart(2, '0');
+            const mins = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+            const secs = String(diff % 60).padStart(2, '0');
+            document.getElementById('hud-trip-timer').textContent = `${hrs}:${mins}:${secs}`;
+        }
+    </script>
+</body>
+</html>

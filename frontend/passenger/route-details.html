@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Route Details | Hubballi–Dharwad</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="ksrtc-header">
+        <a href="/passenger/home.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1 data-i18n="appName">KSRTC LOCAL BUS TRACKING</h1>
+                <span data-i18n="routeDetailsTitle">Transit Route Corridor</span>
+            </div>
+        </a>
+        <div class="ksrtc-nav-links">
+            <a href="/passenger/home.html" class="ksrtc-nav-link" data-i18n="navHome">Home</a>
+            <a href="/passenger/favourites.html" class="ksrtc-nav-link" data-i18n="navFavourites">Favourites</a>
+            <a href="/passenger/account.html" class="ksrtc-nav-link" data-i18n="navAccount">Account</a>
+            <!-- Language Selector -->
+            <div class="ksrtc-lang-container"></div>
+            <button class="btn-logout" onclick="auth.logout()" data-i18n="navLogout">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        
+        <!-- Header & Action Buttons -->
+        <div class="content-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <a href="/passenger/home.html" style="color: var(--ksrtc-primary); text-decoration: none; font-size: 0.85rem; font-weight: 600;" data-i18n="backToHome">← Back to Home</a>
+                <h2 id="route-title" style="font-size: 1.4rem; color: var(--ksrtc-dark); margin-top: 4px;" data-i18n="loadingRoute">Loading Route...</h2>
+                <p id="route-subtitle" style="font-size: 0.9rem; color: var(--text-secondary);"></p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn-primary" id="btn-fav" onclick="toggleFavourite()" style="width: auto; background: #e2e8f0; color: #1e293b; padding: 10px 18px;" data-i18n="btnSaveFav">
+                    ⭐ Save Favourite
+                </button>
+                <button type="button" class="btn-primary" id="btn-track-active" onclick="trackFirstActiveBus()" style="width: auto; padding: 10px 20px;" data-i18n="btnTrackRouteBus">
+                    📍 Track Route Bus
+                </button>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start;">
+            
+            <!-- Interactive Route Leaflet Map -->
+            <div class="content-card" style="padding: 0; overflow: hidden;">
+                <div id="route-map" style="width: 100%; height: 500px;"></div>
+            </div>
+
+            <!-- Ordered Stop Sequence List -->
+            <div class="content-card" style="max-height: 500px; overflow-y: auto;">
+                <h3 style="font-size: 1.05rem; color: var(--ksrtc-dark); margin-bottom: 14px; position: sticky; top: 0; background: white; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);">
+                    🚏 <span id="stops-title-text">Sequenced Stops</span> (<span id="stops-count">0</span>)
+                </h3>
+                <div id="stops-timeline" style="display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/map-helper.js"></script>
+    <script src="/js/i18n.js"></script>
+
+    <script>
+        let routeData = null;
+        let mapInstance = null;
+        let currentRouteId = null;
+        let isFavourite = false;
+        let favouriteId = null;
+        let markersList = [];
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('passenger');
+            if (!user) return;
+
+            const params = new URLSearchParams(window.location.search);
+            currentRouteId = params.get('routeId');
+
+            if (!currentRouteId) {
+                window.location.href = '/passenger/home.html';
+                return;
+            }
+
+            mapInstance = MapHelper.initMap('route-map');
+            await loadRouteDetails(currentRouteId);
+            await checkFavouriteStatus();
+        });
+
+        window.addEventListener('ksrtc:languageChanged', () => {
+            if (routeData) {
+                renderRouteHeader();
+                renderStopsTimeline(routeData.forward_stops || []);
+                updateMapPopups(routeData.forward_stops || []);
+            }
+        });
+
+        async function loadRouteDetails(routeId) {
+            try {
+                const res = await api.get(`/routes/${routeId}`);
+                if (!res || !res.success || !res.route) {
+                    alert('Route not found.');
+                    window.location.href = '/passenger/home.html';
+                    return;
+                }
+
+                routeData = res.route;
+                renderRouteHeader();
+
+                const stops = routeData.forward_stops || [];
+                document.getElementById('stops-count').textContent = stops.length;
+
+                renderStopsTimeline(stops);
+                renderRouteMap(stops);
+
+            } catch (err) {
+                console.error('Failed to load route:', err);
+            }
+        }
+
+        function renderRouteHeader() {
+            if (!routeData) return;
+            document.getElementById('route-title').textContent = `${routeData.route_number} — ${routeData.route_name}`;
+            
+            const srcName = i18n.getStopName(routeData.source);
+            const dstName = i18n.getStopName(routeData.destination);
+            document.getElementById('route-subtitle').textContent = i18n.t('coverageLabel', {
+                coverage: routeData.city_coverage,
+                source: srcName,
+                destination: dstName
+            });
+            document.getElementById('stops-title-text').textContent = i18n.t('sequencedStopsTitle', { count: '' }).replace(/\(\)/g, '').trim();
+        }
+
+        function renderStopsTimeline(stops) {
+            const container = document.getElementById('stops-timeline');
+            if (stops.length === 0) {
+                container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;">${i18n.t('noStopsSequenced')}</p>`;
+                return;
+            }
+
+            container.innerHTML = stops.map((item, idx) => {
+                const isStart = idx === 0;
+                const isEnd = idx === stops.length - 1;
+                const badgeColor = isStart ? '#16a34a' : (isEnd ? '#dc2626' : '#0284c7');
+                const stop = item.stop;
+                const localizedName = i18n.getStopName(stop.stop_name);
+
+                return `
+                    <div style="display: flex; gap: 12px; align-items: flex-start;">
+                        <div style="width: 24px; height: 24px; border-radius: 50%; background: ${badgeColor}; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0;">
+                            ${item.stop_sequence}
+                        </div>
+                        <div>
+                            <strong style="font-size: 0.9rem; color: var(--text-primary); display: block;">${localizedName}</strong>
+                            <small style="font-size: 0.78rem; color: var(--text-muted);">${stop.city}</small>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderRouteMap(stops) {
+            markersList = [];
+            const latlngs = [];
+
+            stops.forEach((item, idx) => {
+                const s = item.stop;
+                const lat = parseFloat(s.latitude);
+                const lng = parseFloat(s.longitude);
+                latlngs.push([lat, lng]);
+
+                let type = 'regular';
+                if (idx === 0) type = 'boarding';
+                else if (idx === stops.length - 1) type = 'destination';
+
+                const marker = L.marker([lat, lng], {
+                    icon: MapHelper.createStopIcon(type, s.stop_name)
+                }).addTo(mapInstance);
+
+                const localizedName = i18n.getStopName(s.stop_name);
+                marker.bindPopup(`<strong>${item.stop_sequence}. ${localizedName}</strong><br><small>${s.city}</small>`);
+                markersList.push({ marker, stop: s, sequence: item.stop_sequence });
+            });
+
+            if (latlngs.length > 0) {
+                MapHelper.drawRouteLine(mapInstance, latlngs, {
+                    color: '#0056b3',
+                    weight: 6,
+                    fitBounds: true
+                });
+            }
+        }
+
+        function updateMapPopups(stops) {
+            markersList.forEach(entry => {
+                const localizedName = i18n.getStopName(entry.stop.stop_name);
+                entry.marker.setPopupContent(`<strong>${entry.sequence}. ${localizedName}</strong><br><small>${entry.stop.city}</small>`);
+            });
+        }
+
+        async function checkFavouriteStatus() {
+            try {
+                const res = await api.get('/passengers/favourites');
+                if (res && res.success && res.favourites) {
+                    const match = res.favourites.find(f => f.route && f.route.id === currentRouteId);
+                    if (match) {
+                        isFavourite = true;
+                        favouriteId = match.id;
+                        updateFavButton();
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function updateFavButton() {
+            const btn = document.getElementById('btn-fav');
+            if (isFavourite) {
+                btn.textContent = i18n.t('btnSavedFav');
+                btn.style.background = '#dcfce7';
+                btn.style.color = '#15803d';
+            } else {
+                btn.textContent = i18n.t('btnSaveFav');
+                btn.style.background = '#e2e8f0';
+                btn.style.color = '#1e293b';
+            }
+        }
+
+        async function toggleFavourite() {
+            try {
+                if (isFavourite && favouriteId) {
+                    await api.delete(`/passengers/favourites/${favouriteId}`);
+                    isFavourite = false;
+                    favouriteId = null;
+                } else {
+                    const res = await api.post('/passengers/favourites', { route_id: currentRouteId });
+                    if (res && res.success && res.favourite) {
+                        isFavourite = true;
+                        favouriteId = res.favourite.id;
+                    }
+                }
+                updateFavButton();
+            } catch (err) {
+                console.error('Favourite toggle error:', err);
+            }
+        }
+
+        function trackFirstActiveBus() {
+            if (routeData && routeData.buses && routeData.buses.length > 0) {
+                const activeBus = routeData.buses.find(b => b.status === 'active' || b.status === 'in_transit') || routeData.buses[0];
+                window.location.href = `/passenger/live-tracking.html?busId=${activeBus.id}`;
+            } else {
+                alert(i18n.getLanguage() === 'kn' ? 'ಈ ಮಾರ್ಗದಲ್ಲಿ ಯಾವುದೇ ಬಸ್‌ಗಳು ನಿಯೋಜನೆಯಾಗಿಲ್ಲ.' :
+                     (i18n.getLanguage() === 'hi' ? 'इस रूट पर वर्तमान में कोई बस सक्रिय नहीं है।' : 'No active buses currently assigned to this route.'));
+            }
+        }
+    </script>
+</body>
+</html>

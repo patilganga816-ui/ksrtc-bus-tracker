@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Trip Completed | Driver Duty Summary</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="ksrtc-header">
+        <a href="/driver/trip-setup.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1>KSRTC LOCAL BUS TRACKING</h1>
+                <span>Driver Duty Summary</span>
+            </div>
+        </a>
+        <button class="btn-logout" onclick="auth.logout()">Logout</button>
+    </header>
+
+    <main class="dashboard-container" style="max-width: 580px;">
+        
+        <div class="content-card" style="text-align: center; padding: 36px 28px;">
+            <div style="width: 68px; height: 68px; border-radius: 50%; background: #dcfce7; color: #16a34a; font-size: 2rem; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+                ✓
+            </div>
+            <h2 style="font-size: 1.5rem; color: var(--ksrtc-dark); margin-bottom: 6px;">Journey Successfully Ended</h2>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px;">
+                GPS transmission has stopped. Passenger tracking screens have been updated.
+            </p>
+
+            <!-- Duty Summary Table -->
+            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px; text-align: left; margin-bottom: 24px; font-size: 0.88rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: var(--text-muted);">Trip Status:</span>
+                    <strong class="badge badge-live">COMPLETED</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: var(--text-muted);">Vehicle Number:</span>
+                    <strong id="sum-bus" style="color: var(--ksrtc-dark);">-</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: var(--text-muted);">Route Corridor:</span>
+                    <strong id="sum-route">-</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: var(--text-muted);">Origin Terminal:</span>
+                    <strong id="sum-start">-</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: var(--text-muted);">Terminating Terminal:</span>
+                    <strong id="sum-dest">-</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: var(--text-muted);">Start Time:</span>
+                    <span id="sum-start-time">-</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);">Completion Time:</span>
+                    <span id="sum-end-time">-</span>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px;">
+                <a href="/driver/trip-setup.html" class="btn-primary" style="text-decoration: none;">
+                    🚍 Setup Next Journey
+                </a>
+                <button type="button" class="btn-logout" onclick="auth.logout()" style="padding: 12px 20px;">
+                    Sign Out
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('driver');
+            if (!user) return;
+
+            const params = new URLSearchParams(window.location.search);
+            const tripId = params.get('tripId');
+
+            if (tripId) {
+                await loadTripSummary(tripId);
+            }
+        });
+
+        async function loadTripSummary(tripId) {
+            try {
+                const res = await api.get('/trips/history');
+                if (res && res.success) {
+                    const t = res.trips.find(x => x.id === tripId);
+                    if (t) {
+                        document.getElementById('sum-bus').textContent = t.bus ? t.bus.bus_number : 'KSRTC';
+                        document.getElementById('sum-route').textContent = t.route ? `${t.route.route_number} - ${t.route.route_name}` : 'Corridor';
+                        document.getElementById('sum-start').textContent = t.starting_stop ? t.starting_stop.stop_name : 'Origin';
+                        document.getElementById('sum-dest').textContent = t.destination_stop ? t.destination_stop.stop_name : 'Destination';
+                        document.getElementById('sum-start-time').textContent = t.start_time ? new Date(t.start_time).toLocaleTimeString() : '-';
+                        document.getElementById('sum-end-time').textContent = t.end_time ? new Date(t.end_time).toLocaleTimeString() : '-';
+                    }
+                }
+            } catch (err) {
+                console.error('Summary error:', err);
+            }
+        }
+    </script>
+</body>
+</html>

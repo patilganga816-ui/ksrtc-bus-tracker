@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Live Bus Tracking | Hubballi–Dharwad</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Supabase JS Client for Realtime WebSockets -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="ksrtc-header">
+        <a href="/passenger/home.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1 data-i18n="appName">KSRTC LOCAL BUS TRACKING</h1>
+                <span data-i18n="liveTelemetryTitle">Live Real-Time Telemetry</span>
+            </div>
+        </a>
+        <div class="ksrtc-nav-links">
+            <a href="/passenger/home.html" class="ksrtc-nav-link" data-i18n="navHome">Home</a>
+            <a href="/passenger/favourites.html" class="ksrtc-nav-link" data-i18n="navFavourites">Favourites</a>
+            <!-- Language Selector -->
+            <div class="ksrtc-lang-container"></div>
+            <button class="btn-logout" onclick="auth.logout()" data-i18n="navLogout">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard-container" style="padding-top: 16px;">
+        
+        <!-- Live Bus Telemetry Status Card -->
+        <div class="content-card" style="margin-bottom: 16px; padding: 18px 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+                        <h2 id="bus-title" style="font-size: 1.4rem; color: var(--ksrtc-dark); font-weight: 700;" data-i18n="loadingVehicle">Loading Vehicle...</h2>
+                        <span id="gps-status-badge" class="badge badge-stale" data-i18n="connectingGps">Connecting GPS...</span>
+                        <span id="gps-mode-badge" class="badge" style="display: none;" data-i18n="realSatelliteGps">REAL GPS</span>
+                    </div>
+                    <p id="route-path-text" style="font-size: 0.9rem; color: var(--text-secondary);">
+                        Corridor: Hubballi–Dharwad Transit Division
+                    </p>
+                </div>
+
+                <!-- Live Metrics Summary -->
+                <div style="display: flex; gap: 20px; font-size: 0.85rem; align-items: center;">
+                    <div style="text-align: right;">
+                        <span style="color: var(--text-muted); display: block;" data-i18n="speedMetric">Speed</span>
+                        <strong id="metric-speed" style="font-size: 1.1rem; color: var(--ksrtc-dark);">0.0 km/h</strong>
+                    </div>
+                    <div style="border-left: 1px solid var(--border-color); height: 28px;"></div>
+                    <div style="text-align: right;">
+                        <span style="color: var(--text-muted); display: block;" data-i18n="lastFixMetric">Last Fix Received</span>
+                        <strong id="metric-last-updated" style="font-size: 0.95rem; color: var(--text-primary);" data-i18n="waitingFix">Waiting...</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Boarding & Destination Summary Banner with Boarding Stop Selector -->
+            <div id="journey-stops-banner" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-color); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="color: var(--text-secondary); font-weight: 600;" data-i18n="boardingStopLbl">Boarding:</span>
+                    <strong id="lbl-boarding-stop" style="color: #16a34a; font-size: 0.95rem;">-</strong>
+                    <select id="boarding-stop-selector" class="form-select" onchange="handleBoardingStopChange(this.value)" style="padding: 4px 10px; font-size: 0.82rem; width: auto; display: none;">
+                        <option value="">-- Choose Boarding Stop --</option>
+                    </select>
+                </div>
+                <div id="dest-display-wrapper" style="display: none;">
+                    <span style="color: var(--text-secondary); font-weight: 600;" data-i18n="destinationStopLbl">Destination:</span>
+                    <strong id="lbl-destination-stop" style="color: #dc2626; font-size: 0.95rem;">-</strong>
+                </div>
+            </div>
+
+            <!-- Real-Time ETA & Distance Telemetry HUD -->
+            <div id="eta-distance-hud" class="eta-distance-banner">
+                <div style="display: flex; gap: 28px; align-items: center; flex-wrap: wrap;">
+                    
+                    <!-- ETA Metric -->
+                    <div class="eta-stat-item">
+                        <span class="label" data-i18n="etaTitle">⏱️ Estimated Arrival</span>
+                        <div style="display: flex; align-items: baseline; gap: 6px;">
+                            <span id="hud-eta-val" class="val" style="color: #15803d;" data-i18n="etaUnavailable">ETA currently unavailable</span>
+                        </div>
+                    </div>
+
+                    <div style="border-left: 1px solid #cbd5e1; height: 32px;"></div>
+
+                    <!-- Distance Metric -->
+                    <div class="eta-stat-item">
+                        <span class="label" data-i18n="distanceTitle">📏 Distance to Boarding Stop</span>
+                        <div style="display: flex; align-items: baseline; gap: 8px;">
+                            <span id="hud-distance-val" class="val" data-i18n="distUnavailable">Distance unavailable</span>
+                            <span id="hud-distance-badge" class="badge-route-dist" style="display: none;" data-i18n="routeBasedDistBadge">Route path distance</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Live recalculation pulse indicator -->
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+                    <span id="hud-status-badge" class="badge badge-stale" data-i18n="waitingFix">Awaiting GPS fix</span>
+                    <small id="hud-disclaimer" style="font-size: 0.72rem; color: var(--text-secondary);" data-i18n="etaDisclaimer">
+                        ℹ️ ETA is approximate and subject to road traffic conditions.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interactive Leaflet Live Map Viewport -->
+        <div class="content-card" style="padding: 0; position: relative;">
+            <div id="live-map" class="map-viewport-container"></div>
+            
+            <!-- Realtime Floating Overlay Pill -->
+            <div style="position: absolute; top: 16px; right: 16px; z-index: 800; background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(4px); padding: 6px 14px; border-radius: var(--radius-full); box-shadow: var(--shadow-md); font-size: 0.78rem; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                <span id="realtime-indicator-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #ea580c;"></span>
+                <span id="realtime-indicator-text" data-i18n="realtimeSync">Realtime Engine: Synchronizing</span>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/map-helper.js"></script>
+    <script src="/js/realtime-tracker.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/eta-calculator.js"></script>
+
+    <script>
+        let targetBusId = null;
+        let mapInstance = null;
+        let busMarker = null;
+        let busData = null;
+        let routePolyline = null;
+        let updateTimer = null;
+        let lastFixTimestamp = null;
+        let latestTelemetryObj = null;
+
+        let selectedFromStopId = null;
+        let selectedToStopId = null;
+        let currentBoardingStopObj = null;
+        let currentDestStopObj = null;
+        let currentRouteStops = [];
+        let stopMarkersMap = {};
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('passenger');
+            if (!user) return;
+
+            const params = new URLSearchParams(window.location.search);
+            targetBusId = params.get('busId');
+            selectedFromStopId = params.get('from');
+            selectedToStopId = params.get('to');
+
+            if (!targetBusId) {
+                alert('No bus selected for tracking.');
+                window.location.href = '/passenger/home.html';
+                return;
+            }
+
+            // 1. Initialize Map centered on Hubballi–Dharwad
+            mapInstance = MapHelper.initMap('live-map');
+
+            // 2. Load bus details, route geometry, and stops
+            await loadBusAndRouteGeometry(targetBusId, selectedFromStopId, selectedToStopId);
+
+            // 3. Cold Start: Retrieve latest committed GPS coordinates immediately
+            await fetchColdStartLocation(targetBusId);
+
+            // 4. Subscribe to live WebSocket telemetry stream via Supabase Realtime
+            subscribeLiveStream(targetBusId);
+
+            // 5. Update timestamp elapsed clock every second
+            updateTimer = setInterval(refreshClockUI, 1000);
+        });
+
+        window.addEventListener('beforeunload', () => {
+            RealtimeTracker.unsubscribe();
+            if (updateTimer) clearInterval(updateTimer);
+        });
+
+        // Listen for language change events
+        window.addEventListener('ksrtc:languageChanged', () => {
+            refreshLanguageDisplays();
+        });
+
+        function refreshLanguageDisplays() {
+            if (busData) {
+                document.getElementById('bus-title').textContent = `${busData.bus_number} (${busData.bus_type})`;
+                if (busData.route) {
+                    document.getElementById('route-path-text').textContent = 
+                        `${i18n.t('routeLabel')} ${busData.route.route_number}: ${busData.route.route_name}`;
+                }
+            }
+
+            if (currentBoardingStopObj) {
+                document.getElementById('lbl-boarding-stop').textContent = i18n.getStopName(currentBoardingStopObj.stop_name);
+            }
+            if (currentDestStopObj) {
+                document.getElementById('lbl-destination-stop').textContent = i18n.getStopName(currentDestStopObj.stop_name);
+            }
+
+            // Re-render stop selector dropdown options
+            populateBoardingSelector();
+
+            // Recompute ETA & Distance display with active language
+            recomputeETAAndDistance();
+        }
+
+        async function loadBusAndRouteGeometry(busId, fromStopId, toStopId) {
+            try {
+                const res = await api.get(`/buses/${busId}`);
+                if (!res || !res.success || !res.bus) {
+                    alert('Bus details could not be loaded.');
+                    return;
+                }
+
+                busData = res.bus;
+                document.getElementById('bus-title').textContent = `${busData.bus_number} (${busData.bus_type})`;
+
+                if (busData.route) {
+                    document.getElementById('route-path-text').textContent = 
+                        `${i18n.t('routeLabel')} ${busData.route.route_number}: ${busData.route.route_name}`;
+                    await loadRouteStopsOnMap(busData.route.id, fromStopId, toStopId);
+                }
+
+            } catch (err) {
+                console.error('Failed to load bus geometry:', err);
+            }
+        }
+
+        async function loadRouteStopsOnMap(routeId, fromStopId, toStopId) {
+            try {
+                const res = await api.get(`/routes/${routeId}`);
+                if (!res || !res.success || !res.route) return;
+
+                currentRouteStops = res.route.forward_stops || [];
+                const latlngs = [];
+
+                currentRouteStops.forEach((item, index) => {
+                    const s = item.stop;
+                    const lat = parseFloat(s.latitude);
+                    const lng = parseFloat(s.longitude);
+                    latlngs.push([lat, lng]);
+
+                    let type = 'regular';
+                    if (fromStopId && s.id === fromStopId) {
+                        type = 'boarding';
+                        currentBoardingStopObj = s;
+                    } else if (toStopId && s.id === toStopId) {
+                        type = 'destination';
+                        currentDestStopObj = s;
+                    } else if (!fromStopId && index === 0) {
+                        // Default boarding stop if none selected in URL
+                        currentBoardingStopObj = s;
+                        type = 'boarding';
+                    } else if (!toStopId && index === currentRouteStops.length - 1) {
+                        type = 'destination';
+                    }
+
+                    const marker = L.marker([lat, lng], {
+                        icon: MapHelper.createStopIcon(type, s.stop_name)
+                    }).addTo(mapInstance);
+
+                    stopMarkersMap[s.id] = { marker, stop: s, type };
+                    marker.bindPopup(`<strong>${item.stop_sequence}. ${i18n.getStopName(s.stop_name)}</strong><br><small>${s.city}</small>`);
+                });
+
+                // Update UI Labels
+                if (currentBoardingStopObj) {
+                    document.getElementById('lbl-boarding-stop').textContent = i18n.getStopName(currentBoardingStopObj.stop_name);
+                }
+                if (currentDestStopObj) {
+                    document.getElementById('dest-display-wrapper').style.display = 'block';
+                    document.getElementById('lbl-destination-stop').textContent = i18n.getStopName(currentDestStopObj.stop_name);
+                }
+
+                // Populate boarding stop dropdown for flexible user choice
+                populateBoardingSelector();
+
+                if (latlngs.length > 0) {
+                    routePolyline = MapHelper.drawRouteLine(mapInstance, latlngs, {
+                        color: '#0056b3',
+                        weight: 5
+                    });
+                }
+            } catch (e) {
+                console.error('Route stops map error:', e);
+            }
+        }
+
+        function populateBoardingSelector() {
+            const selector = document.getElementById('boarding-stop-selector');
+            if (!currentRouteStops || currentRouteStops.length === 0) return;
+
+            selector.style.display = 'inline-block';
+            const curVal = currentBoardingStopObj ? currentBoardingStopObj.id : '';
+
+            selector.innerHTML = currentRouteStops.map(item => {
+                const s = item.stop;
+                const localized = i18n.getStopName(s.stop_name);
+                const selected = s.id === curVal ? 'selected' : '';
+                return `<option value="${s.id}" ${selected}>${item.stop_sequence}. ${localized}</option>`;
+            }).join('');
+        }
+
+        function handleBoardingStopChange(stopId) {
+            const found = currentRouteStops.find(item => item.stop.id === stopId);
+            if (found) {
+                currentBoardingStopObj = found.stop;
+                selectedFromStopId = stopId;
+                document.getElementById('lbl-boarding-stop').textContent = i18n.getStopName(currentBoardingStopObj.stop_name);
+
+                // Update map markers
+                Object.keys(stopMarkersMap).forEach(id => {
+                    const entry = stopMarkersMap[id];
+                    let type = (id === stopId) ? 'boarding' : (selectedToStopId && id === selectedToStopId ? 'destination' : 'regular');
+                    entry.marker.setIcon(MapHelper.createStopIcon(type, entry.stop.stop_name));
+                });
+
+                recomputeETAAndDistance();
+            }
+        }
+
+        async function fetchColdStartLocation(busId) {
+            try {
+                const res = await api.get(`/locations/latest/${busId}`);
+                if (res && res.success && res.location) {
+                    handleNewLocation(res.location, false);
+                } else {
+                    document.getElementById('gps-status-badge').textContent = i18n.t('statusNoSignal');
+                    document.getElementById('gps-status-badge').className = 'badge badge-stale';
+                    document.getElementById('metric-last-updated').textContent = i18n.t('awaitingDriver');
+                    recomputeETAAndDistance();
+                }
+            } catch (err) {
+                console.error('Cold start fetch error:', err);
+                recomputeETAAndDistance();
+            }
+        }
+
+        function subscribeLiveStream(busId) {
+            const statusDot = document.getElementById('realtime-indicator-dot');
+            const statusText = document.getElementById('realtime-indicator-text');
+
+            RealtimeTracker.subscribeToBus(
+                busId,
+                (newLocation) => {
+                    handleNewLocation(newLocation, true);
+                },
+                (status) => {
+                    if (status === 'CONNECTED') {
+                        statusDot.style.background = '#16a34a';
+                        statusText.textContent = i18n.t('realtimeActive');
+                    } else if (status === 'RECONNECTING') {
+                        statusDot.style.background = '#ea580c';
+                        statusText.textContent = i18n.t('realtimeRecon');
+                    }
+                }
+            );
+        }
+
+        function handleNewLocation(loc, isLiveUpdate = true) {
+            latestTelemetryObj = loc;
+            const lat = parseFloat(loc.latitude);
+            const lng = parseFloat(loc.longitude);
+            const heading = parseFloat(loc.heading) || 0;
+            const speed = parseFloat(loc.speed) || 0;
+            const isSimulated = (loc.trip && loc.trip.gps_mode === 'simulated') || (loc.speed === 38.5 && loc.accuracy === 5);
+
+            lastFixTimestamp = loc.gps_timestamp || loc.server_received_at;
+
+            // Update Speed & Metrics
+            document.getElementById('metric-speed').textContent = `${speed.toFixed(1)} km/h`;
+            refreshClockUI();
+
+            // Status Badges
+            const badge = document.getElementById('gps-status-badge');
+            badge.textContent = isSimulated ? i18n.t('statusSimGps') : i18n.t('statusLiveGps');
+            badge.className = isSimulated ? 'badge badge-simulated' : 'badge badge-live';
+
+            const modeBadge = document.getElementById('gps-mode-badge');
+            modeBadge.style.display = 'inline-flex';
+            modeBadge.textContent = isSimulated ? i18n.t('simulatedMode') : i18n.t('realSatelliteGps');
+            modeBadge.style.background = isSimulated ? '#fef3c7' : '#e0f2fe';
+            modeBadge.style.color = isSimulated ? '#b45309' : '#0369a1';
+
+            // Marker update
+            const busNumber = busData ? busData.bus_number : 'KSRTC';
+
+            if (!busMarker) {
+                busMarker = L.marker([lat, lng], {
+                    icon: MapHelper.createBusIcon(busNumber, heading, isSimulated)
+                }).addTo(mapInstance);
+
+                busMarker.bindPopup(`<strong>${busNumber}</strong><br>Speed: ${speed.toFixed(1)} km/h`);
+                mapInstance.setView([lat, lng], 14);
+            } else {
+                MapHelper.updateMarkerPosition(busMarker, lat, lng, heading, busNumber, isSimulated);
+                if (isLiveUpdate) {
+                    mapInstance.panTo([lat, lng], { animate: true, duration: 1.0 });
+                }
+            }
+
+            // Recalculate Distance & ETA live
+            recomputeETAAndDistance();
+        }
+
+        function recomputeETAAndDistance() {
+            const etaValEl = document.getElementById('hud-eta-val');
+            const distValEl = document.getElementById('hud-distance-val');
+            const distBadgeEl = document.getElementById('hud-distance-badge');
+            const statusBadgeEl = document.getElementById('hud-status-badge');
+
+            if (!latestTelemetryObj || !currentBoardingStopObj) {
+                etaValEl.textContent = i18n.t('etaUnavailable');
+                etaValEl.style.color = '#64748b';
+                distValEl.textContent = i18n.t('distUnavailable');
+                distBadgeEl.style.display = 'none';
+                statusBadgeEl.textContent = i18n.t('selectBoardingPrompt');
+                statusBadgeEl.className = 'badge badge-stale';
+                return;
+            }
+
+            const busType = busData ? busData.bus_type : 'City Ordinary';
+            const calc = ETACalculator.calculate(latestTelemetryObj, currentBoardingStopObj, currentRouteStops, busType);
+
+            // Format ETA
+            const formattedETA = ETACalculator.formatETA(calc);
+            etaValEl.textContent = formattedETA;
+
+            // Format Distance
+            const formattedDist = ETACalculator.formatDistance(calc);
+            distValEl.textContent = formattedDist;
+
+            if (calc.passedStop) {
+                etaValEl.style.color = '#dc2626';
+                distValEl.style.color = '#dc2626';
+                distBadgeEl.style.display = 'none';
+                statusBadgeEl.className = 'badge badge-passed';
+                statusBadgeEl.textContent = i18n.t('stopPassed');
+            } else if (calc.isStale) {
+                etaValEl.style.color = '#ea580c';
+                distValEl.style.color = '#ea580c';
+                distBadgeEl.style.display = 'none';
+                statusBadgeEl.className = 'badge badge-stale';
+                statusBadgeEl.textContent = i18n.t('etaDelayed');
+            } else if (calc.status === 'OK' || calc.status === 'ARRIVING_NOW') {
+                etaValEl.style.color = '#15803d';
+                distValEl.style.color = '#0f172a';
+                distBadgeEl.style.display = 'inline-block';
+                distBadgeEl.textContent = calc.isRouteBased ? i18n.t('routeBasedDistBadge') : i18n.t('straightLineDistBadge');
+                statusBadgeEl.className = 'badge badge-live';
+                statusBadgeEl.textContent = `${calc.stopsRemaining} ${i18n.t('stopsCount', { count: calc.stopsRemaining }) || 'stops away'}`;
+            } else {
+                etaValEl.style.color = '#64748b';
+                distValEl.style.color = '#64748b';
+                distBadgeEl.style.display = 'none';
+                statusBadgeEl.className = 'badge badge-stale';
+                statusBadgeEl.textContent = i18n.t('etaUnavailable');
+            }
+        }
+
+        function refreshClockUI() {
+            if (!lastFixTimestamp) return;
+            const formatted = MapHelper.formatLocationAge(lastFixTimestamp);
+            document.getElementById('metric-last-updated').textContent = formatted;
+
+            // Check if signal has become stale (> 2 minutes)
+            const ageSec = Math.round((new Date().getTime() - new Date(lastFixTimestamp).getTime()) / 1000);
+            const badge = document.getElementById('gps-status-badge');
+            if (ageSec > 120 && !badge.textContent.includes('STALE') && !badge.textContent.includes('ಹಳೆಯ')) {
+                badge.className = 'badge badge-stale';
+                badge.textContent = i18n.t('statusStaleGps');
+                recomputeETAAndDistance();
+            }
+        }
+    </script>
+</body>
+</html>

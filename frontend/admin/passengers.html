@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Registered Passenger Directory</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="ksrtc-header">
+        <a href="/admin/dashboard.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1>KSRTC LOCAL BUS TRACKING</h1>
+                <span>Passenger Directory</span>
+            </div>
+        </a>
+        <div class="ksrtc-nav-links">
+            <a href="/admin/dashboard.html" class="ksrtc-nav-link">Dashboard</a>
+            <a href="/admin/buses.html" class="ksrtc-nav-link">Buses</a>
+            <a href="/admin/drivers.html" class="ksrtc-nav-link">Drivers</a>
+            <a href="/admin/passengers.html" class="ksrtc-nav-link active">Passengers</a>
+            <a href="/admin/live-monitoring.html" class="ksrtc-nav-link">Live Fleet Map</a>
+            <button class="btn-logout" onclick="auth.logout()">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        
+        <div class="content-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 style="font-size: 1.3rem; color: var(--ksrtc-dark);">👥 Commuter Profiles</h2>
+                <p style="font-size: 0.85rem; color: var(--text-secondary);">Registered passenger accounts across Hubballi and Dharwad</p>
+            </div>
+            <span id="passengers-count-badge" class="badge badge-live">Loading...</span>
+        </div>
+
+        <div class="content-card" style="padding: 0; overflow-x: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Passenger Name</th>
+                        <th>Email Address</th>
+                        <th>Mobile Number</th>
+                        <th>Account Status</th>
+                        <th>Registered Date</th>
+                        <th>Access Control</th>
+                    </tr>
+                </thead>
+                <tbody id="passengers-table-body">
+                    <tr><td colspan="6" style="text-align: center; padding: 24px;">Loading commuter directory...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('admin');
+            if (!user) return;
+            await loadPassengers();
+        });
+
+        async function loadPassengers() {
+            const tbody = document.getElementById('passengers-table-body');
+            const badge = document.getElementById('passengers-count-badge');
+
+            try {
+                const res = await api.get('/passengers');
+                if (!res || !res.success || res.passengers.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">No passengers registered yet.</td></tr>`;
+                    badge.textContent = '0 Commuters';
+                    return;
+                }
+
+                badge.textContent = `${res.passengers.length} Registered Commuters`;
+
+                tbody.innerHTML = res.passengers.map(p => {
+                    const isActive = p.status === 'active';
+                    return `
+                        <tr>
+                            <td><strong>${p.full_name}</strong></td>
+                            <td>${p.email}</td>
+                            <td>${p.mobile_number || '-'}</td>
+                            <td><span class="badge ${isActive ? 'badge-live' : 'badge-stale'}">${p.status.toUpperCase()}</span></td>
+                            <td>${new Date(p.created_at).toLocaleDateString()}</td>
+                            <td>
+                                <button type="button" class="${isActive ? 'btn-logout' : 'btn-primary'}" onclick="toggleStatus('${p.id}', '${isActive ? 'suspended' : 'active'}')" style="padding: 4px 10px; font-size: 0.78rem;">
+                                    ${isActive ? 'Suspend' : 'Activate'}
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error('Passengers error:', err);
+            }
+        }
+
+        async function toggleStatus(id, newStatus) {
+            if (!confirm(`Are you sure you want to mark this account as ${newStatus}?`)) return;
+            try {
+                const res = await api.patch(`/passengers/${id}/status`, { status: newStatus });
+                if (res && res.success) await loadPassengers();
+            } catch (e) {}
+        }
+    </script>
+</body>
+</html>

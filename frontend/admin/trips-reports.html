@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Trip Management & Operational Reports</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="ksrtc-header">
+        <a href="/admin/dashboard.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1>KSRTC LOCAL BUS TRACKING</h1>
+                <span>Operational Reports & Logs</span>
+            </div>
+        </a>
+        <div class="ksrtc-nav-links">
+            <a href="/admin/dashboard.html" class="ksrtc-nav-link">Dashboard</a>
+            <a href="/admin/buses.html" class="ksrtc-nav-link">Buses</a>
+            <a href="/admin/drivers.html" class="ksrtc-nav-link">Drivers</a>
+            <a href="/admin/trips-reports.html" class="ksrtc-nav-link active">Reports</a>
+            <a href="/admin/live-monitoring.html" class="ksrtc-nav-link">Live Fleet Map</a>
+            <button class="btn-logout" onclick="auth.logout()">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        
+        <div class="content-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 style="font-size: 1.3rem; color: var(--ksrtc-dark);">📊 Trip Logs & Operational Performance</h2>
+                <p style="font-size: 0.85rem; color: var(--text-secondary);">Historical transit logs stored permanently in Supabase PostgreSQL</p>
+            </div>
+            <button type="button" class="btn-primary" onclick="exportToCSV()" style="width: auto; padding: 10px 20px; background: #16a34a;">
+                📥 Export Log to CSV
+            </button>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="content-card" style="padding: 16px 20px;">
+            <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+                <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">Filter By Status:</label>
+                <select id="filter-status" class="form-select" onchange="loadTrips()" style="width: auto; padding: 8px 14px;">
+                    <option value="">All Statuses</option>
+                    <option value="in_progress">In Progress (Active)</option>
+                    <option value="completed">Completed</option>
+                </select>
+                <button type="button" class="btn-primary" onclick="loadTrips()" style="width: auto; padding: 8px 16px;">
+                    Refresh Logs
+                </button>
+            </div>
+        </div>
+
+        <!-- Reports Table -->
+        <div class="content-card" style="padding: 0; overflow-x: auto;">
+            <table class="data-table" id="trips-table">
+                <thead>
+                    <tr>
+                        <th>Bus Number</th>
+                        <th>Driver Operator</th>
+                        <th>Route Corridor</th>
+                        <th>Origin Terminal</th>
+                        <th>Destination</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>GPS Mode</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="trips-table-body">
+                    <tr><td colspan="9" style="text-align: center; padding: 24px;">Loading trip logs...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+
+    <script>
+        let currentTrips = [];
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('admin');
+            if (!user) return;
+            await loadTrips();
+        });
+
+        async function loadTrips() {
+            const tbody = document.getElementById('trips-table-body');
+            const statusFilter = document.getElementById('filter-status').value;
+
+            try {
+                const res = await api.get('/trips/history', { status: statusFilter });
+                if (!res || !res.success || res.trips.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 32px; color: var(--text-muted);">No trip records match the selected filter.</td></tr>`;
+                    currentTrips = [];
+                    return;
+                }
+
+                currentTrips = res.trips;
+                tbody.innerHTML = currentTrips.map(t => {
+                    const b = t.bus ? t.bus.bus_number : 'Vehicle';
+                    const d = t.driver ? (t.driver.profile ? t.driver.profile.full_name : t.driver.employee_id) : 'Driver';
+                    const r = t.route ? t.route.route_number : '-';
+                    const sStart = t.starting_stop ? t.starting_stop.stop_name : '-';
+                    const sDest = t.destination_stop ? t.destination_stop.stop_name : '-';
+                    const isLive = t.trip_status === 'in_progress';
+
+                    return `
+                        <tr>
+                            <td><strong style="color: var(--ksrtc-dark);">${b}</strong></td>
+                            <td>${d}</td>
+                            <td>Route ${r}</td>
+                            <td>${sStart}</td>
+                            <td>${sDest}</td>
+                            <td>${new Date(t.start_time).toLocaleString()}</td>
+                            <td>${t.end_time ? new Date(t.end_time).toLocaleString() : '<span style="color: #16a34a;">Active</span>'}</td>
+                            <td><span class="badge ${t.gps_mode === 'simulated' ? 'badge-simulated' : 'badge-live'}">${(t.gps_mode || 'real').toUpperCase()}</span></td>
+                            <td><span class="badge ${isLive ? 'badge-live' : 'badge-stale'}">${t.trip_status.toUpperCase()}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error('Trips report error:', err);
+            }
+        }
+
+        function exportToCSV() {
+            if (currentTrips.length === 0) {
+                alert('No records available to export.');
+                return;
+            }
+
+            const headers = ['Trip ID', 'Bus Number', 'Driver', 'Route', 'Origin Stop', 'Destination Stop', 'Start Time', 'End Time', 'GPS Mode', 'Status'];
+            const rows = currentTrips.map(t => [
+                t.id,
+                t.bus ? t.bus.bus_number : '',
+                t.driver && t.driver.profile ? t.driver.profile.full_name : '',
+                t.route ? t.route.route_number : '',
+                t.starting_stop ? t.starting_stop.stop_name : '',
+                t.destination_stop ? t.destination_stop.stop_name : '',
+                t.start_time,
+                t.end_time || '',
+                t.gps_mode || 'real',
+                t.trip_status
+            ]);
+
+            let csvContent = 'data:text/csv;charset=utf-8,' 
+                + headers.join(',') + '\n'
+                + rows.map(e => e.map(val => `"${val}"`).join(',')).join('\n');
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', `KSRTC_Hubballi_Dharwad_Trip_Report_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

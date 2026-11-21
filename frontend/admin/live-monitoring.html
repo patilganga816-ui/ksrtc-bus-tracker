@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Live Fleet Monitoring Map</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="ksrtc-header">
+        <a href="/admin/dashboard.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1>KSRTC LOCAL BUS TRACKING</h1>
+                <span>Live Fleet Radar Monitoring</span>
+            </div>
+        </a>
+        <div class="ksrtc-nav-links">
+            <a href="/admin/dashboard.html" class="ksrtc-nav-link">Dashboard</a>
+            <a href="/admin/buses.html" class="ksrtc-nav-link">Buses</a>
+            <a href="/admin/drivers.html" class="ksrtc-nav-link">Drivers</a>
+            <a href="/admin/routes-stops.html" class="ksrtc-nav-link">Routes & Stops</a>
+            <a href="/admin/live-monitoring.html" class="ksrtc-nav-link active">Live Fleet Map</a>
+            <button class="btn-logout" onclick="auth.logout()">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard-container" style="max-width: 1400px; padding: 14px 16px;">
+        
+        <div style="display: grid; grid-template-columns: 320px 1fr; gap: 16px; height: calc(100vh - 100px);">
+            
+            <!-- Active Buses Roster Sidebar -->
+            <div class="content-card" style="margin-bottom: 0; display: flex; flex-direction: column; padding: 16px; height: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                    <h3 style="font-size: 1.1rem; color: var(--ksrtc-dark);">⚡ Active Vehicles</h3>
+                    <span id="fleet-count-badge" class="badge badge-live">0 Live</span>
+                </div>
+
+                <div id="fleet-sidebar-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Full Hubballi-Dharwad Live Map -->
+            <div class="content-card" style="margin-bottom: 0; padding: 0; position: relative; height: 100%; border-radius: var(--radius-lg); overflow: hidden;">
+                <div id="fleet-map" style="width: 100%; height: 100%;"></div>
+
+                <div style="position: absolute; top: 16px; right: 16px; z-index: 800; background: rgba(255, 255, 255, 0.95); padding: 8px 16px; border-radius: var(--radius-full); box-shadow: var(--shadow-md); font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: #16a34a; animation: radar-pulse 1.5s infinite;"></span>
+                    <span>Supabase Realtime: Monitoring All Fleet Transmissions</span>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/map-helper.js"></script>
+    <script src="/js/realtime-tracker.js"></script>
+
+    <script>
+        let fleetMap = null;
+        const fleetMarkers = {}; // bus_id -> Leaflet Marker
+        let activeTripsList = [];
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('admin');
+            if (!user) return;
+
+            fleetMap = MapHelper.initMap('fleet-map', { zoom: 12 });
+
+            await loadStopsBackground();
+            await loadActiveFleet();
+
+            // Subscribe to all fleet telemetry using Supabase Realtime
+            RealtimeTracker.subscribeToFleet((newLoc) => {
+                handleIncomingFleetLocation(newLoc);
+            });
+        });
+
+        window.addEventListener('beforeunload', () => {
+            RealtimeTracker.unsubscribe();
+        });
+
+        async function loadStopsBackground() {
+            try {
+                const res = await api.get('/routes/stops/all');
+                if (res && res.success) {
+                    res.stops.forEach(s => {
+                        L.circleMarker([s.latitude, s.longitude], {
+                            radius: 4,
+                            color: '#94a3b8',
+                            fillColor: '#cbd5e1',
+                            fillOpacity: 0.6
+                        }).addTo(fleetMap).bindPopup(`<strong>${s.stop_name}</strong>`);
+                    });
+                }
+            } catch (e) {}
+        }
+
+        async function loadActiveFleet() {
+            try {
+                const res = await api.get('/trips/active');
+                if (res && res.success) {
+                    activeTripsList = res.trips;
+                    document.getElementById('fleet-count-badge').textContent = `${activeTripsList.length} Active`;
+
+                    renderFleetSidebar();
+
+                    activeTripsList.forEach(t => {
+                        if (t.latest_location) {
+                            handleIncomingFleetLocation(t.latest_location, t.bus);
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error('Active fleet error:', err);
+            }
+        }
+
+        function renderFleetSidebar() {
+            const container = document.getElementById('fleet-sidebar-list');
+            if (activeTripsList.length === 0) {
+                container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 24px;">No buses currently on active duty trips.</p>`;
+                return;
+            }
+
+            container.innerHTML = activeTripsList.map(t => {
+                const b = t.bus || {};
+                const r = t.route || {};
+                const d = t.driver ? (t.driver.profile ? t.driver.profile.full_name : t.driver.employee_id) : 'Driver';
+                const hasGps = !!t.latest_location;
+
+                return `
+                    <div onclick="focusBus('${b.id}')" style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; cursor: pointer; transition: all 0.2s; background: #ffffff;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <strong style="color: var(--ksrtc-dark); font-size: 1rem;">${b.bus_number}</strong>
+                            <span class="badge ${hasGps ? 'badge-live' : 'badge-stale'}">${hasGps ? 'LIVE' : 'WAITING'}</span>
+                        </div>
+                        <span style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 2px;">
+                            Route: ${r.route_number || 'Local'}
+                        </span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">
+                            Driver: ${d}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function handleIncomingFleetLocation(loc, busObj = null) {
+            const busId = loc.bus_id;
+            const lat = parseFloat(loc.latitude);
+            const lng = parseFloat(loc.longitude);
+            const heading = parseFloat(loc.heading) || 0;
+
+            let busNumber = 'KSRTC';
+            if (busObj) {
+                busNumber = busObj.bus_number;
+            } else {
+                const found = activeTripsList.find(t => t.bus && t.bus.id === busId);
+                if (found && found.bus) busNumber = found.bus.bus_number;
+            }
+
+            if (!fleetMarkers[busId]) {
+                const marker = L.marker([lat, lng], {
+                    icon: MapHelper.createBusIcon(busNumber, heading, loc.speed === 38.5)
+                }).addTo(fleetMap);
+
+                marker.bindPopup(`<strong>${busNumber}</strong><br>Speed: ${parseFloat(loc.speed || 0).toFixed(1)} km/h`);
+                fleetMarkers[busId] = marker;
+            } else {
+                MapHelper.updateMarkerPosition(fleetMarkers[busId], lat, lng, heading, busNumber, loc.speed === 38.5);
+            }
+        }
+
+        function focusBus(busId) {
+            const marker = fleetMarkers[busId];
+            if (marker) {
+                fleetMap.setView(marker.getLatLng(), 15, { animate: true });
+                marker.openPopup();
+            } else {
+                alert('No recent GPS coordinates for this vehicle yet.');
+            }
+        }
+    </script>
+</body>
+</html>

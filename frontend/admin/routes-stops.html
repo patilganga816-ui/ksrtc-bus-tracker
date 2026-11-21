@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Routes & Stops Management</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="ksrtc-header">
+        <a href="/admin/dashboard.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1>KSRTC LOCAL BUS TRACKING</h1>
+                <span>Routes & Stops Management</span>
+            </div>
+        </a>
+        <div class="ksrtc-nav-links">
+            <a href="/admin/dashboard.html" class="ksrtc-nav-link">Dashboard</a>
+            <a href="/admin/buses.html" class="ksrtc-nav-link">Buses</a>
+            <a href="/admin/drivers.html" class="ksrtc-nav-link">Drivers</a>
+            <a href="/admin/routes-stops.html" class="ksrtc-nav-link active">Routes & Stops</a>
+            <a href="/admin/live-monitoring.html" class="ksrtc-nav-link">Live Fleet Map</a>
+            <button class="btn-logout" onclick="auth.logout()">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+            
+            <!-- Map-Based Bus Stop Geolocation Picker -->
+            <div class="content-card">
+                <h3 style="font-size: 1.15rem; color: var(--ksrtc-dark); margin-bottom: 8px;">
+                    🗺️ Interactive Coordinate Picker
+                </h3>
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 12px;">
+                    Click anywhere on the Hubballi–Dharwad map to pin verified latitude and longitude.
+                </p>
+
+                <div id="picker-map" style="width: 100%; height: 320px; border-radius: var(--radius-md); overflow: hidden; margin-bottom: 14px;"></div>
+
+                <form onsubmit="handleCreateStop(event)">
+                    <div class="form-group">
+                        <label class="form-label">Bus Stop Name</label>
+                        <input type="text" id="stop-input-name" class="form-input" placeholder="e.g. Unkal Lake Cross" required style="padding-left: 14px;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="form-group">
+                            <label class="form-label">City</label>
+                            <select id="stop-input-city" class="form-select" required>
+                                <option value="Hubballi">Hubballi</option>
+                                <option value="Dharwad">Dharwad</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Address / Landmark</label>
+                            <input type="text" id="stop-input-addr" class="form-input" placeholder="PB Road" required style="padding-left: 14px;">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="form-group">
+                            <label class="form-label">Latitude</label>
+                            <input type="number" step="0.0000001" id="stop-input-lat" class="form-input" placeholder="15.3524000" required style="padding-left: 14px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Longitude</label>
+                            <input type="number" step="0.0000001" id="stop-input-lng" class="form-input" placeholder="75.1384000" required style="padding-left: 14px;">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary" style="margin-top: 6px;">
+                        Save Verified Bus Stop
+                    </button>
+                </form>
+            </div>
+
+            <!-- Route Builder & Route List -->
+            <div class="content-card">
+                <h3 style="font-size: 1.15rem; color: var(--ksrtc-dark); margin-bottom: 8px;">
+                    🛤️ Create Transit Route
+                </h3>
+                <form onsubmit="handleCreateRoute(event)" style="margin-bottom: 24px;">
+                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px;">
+                        <div class="form-group">
+                            <label class="form-label">Route No.</label>
+                            <input type="text" id="route-input-num" class="form-input" placeholder="e.g. 100-HD" required style="padding-left: 14px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Route Name</label>
+                            <input type="text" id="route-input-name" class="form-input" placeholder="Hubballi to Dharwad via BRTS" required style="padding-left: 14px;">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="form-group">
+                            <label class="form-label">Source Terminal</label>
+                            <input type="text" id="route-input-src" class="form-input" placeholder="Hubballi CBT" required style="padding-left: 14px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Destination</label>
+                            <input type="text" id="route-input-dest" class="form-input" placeholder="Dharwad CBT" required style="padding-left: 14px;">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary">Create Route Corridor</button>
+                </form>
+
+                <h4 style="font-size: 1rem; color: var(--ksrtc-dark); margin-bottom: 12px; border-top: 1px solid var(--border-color); padding-top: 14px;">
+                    Existing Configured Routes
+                </h4>
+                <div id="routes-catalog" style="display: flex; flex-direction: column; gap: 10px; max-height: 280px; overflow-y: auto;">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/map-helper.js"></script>
+
+    <script>
+        let pickerMap = null;
+        let pickerMarker = null;
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const user = await auth.guard('admin');
+            if (!user) return;
+
+            initPickerMap();
+            await loadExistingStopsOnMap();
+            await loadRoutesCatalog();
+        });
+
+        function initPickerMap() {
+            pickerMap = MapHelper.initMap('picker-map', { zoom: 12 });
+
+            pickerMap.on('click', (e) => {
+                const lat = parseFloat(e.latlng.lat).toFixed(7);
+                const lng = parseFloat(e.latlng.lng).toFixed(7);
+
+                document.getElementById('stop-input-lat').value = lat;
+                document.getElementById('stop-input-lng').value = lng;
+
+                if (!pickerMarker) {
+                    pickerMarker = L.marker([lat, lng], {
+                        icon: MapHelper.createStopIcon('boarding')
+                    }).addTo(pickerMap);
+                } else {
+                    pickerMarker.setLatLng([lat, lng]);
+                }
+            });
+        }
+
+        async function loadExistingStopsOnMap() {
+            try {
+                const res = await api.get('/routes/stops/all');
+                if (res && res.success) {
+                    res.stops.forEach(s => {
+                        const m = L.circleMarker([s.latitude, s.longitude], {
+                            radius: 6,
+                            color: '#0056b3',
+                            fillColor: '#60a5fa',
+                            fillOpacity: 0.8
+                        }).addTo(pickerMap);
+                        m.bindPopup(`<strong>${s.stop_name}</strong><br>${s.city}`);
+                    });
+                }
+            } catch (e) {}
+        }
+
+        async function loadRoutesCatalog() {
+            const container = document.getElementById('routes-catalog');
+            try {
+                const res = await api.get('/routes');
+                if (!res || !res.success || res.routes.length === 0) {
+                    container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;">No routes registered yet.</p>`;
+                    return;
+                }
+
+                container.innerHTML = res.routes.map(r => `
+                    <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+                        <div>
+                            <strong style="color: var(--ksrtc-primary); font-size: 0.95rem;">${r.route_number}</strong>: ${r.route_name}
+                            <span style="display: block; font-size: 0.75rem; color: var(--text-muted);">${r.stops_count} configured stops</span>
+                        </div>
+                        <a href="/passenger/route-details.html?routeId=${r.id}" class="btn-primary" style="width: auto; padding: 4px 12px; font-size: 0.78rem; text-decoration: none;">View Path</a>
+                    </div>
+                `).join('');
+
+            } catch (err) {
+                console.error('Routes catalog error:', err);
+            }
+        }
+
+        async function handleCreateStop(e) {
+            e.preventDefault();
+            const payload = {
+                stop_name: document.getElementById('stop-input-name').value.trim(),
+                city: document.getElementById('stop-input-city').value,
+                address: document.getElementById('stop-input-addr').value.trim(),
+                latitude: document.getElementById('stop-input-lat').value,
+                longitude: document.getElementById('stop-input-lng').value
+            };
+
+            try {
+                const res = await api.post('/routes/stops', payload);
+                if (res && res.success) {
+                    alert('Bus stop saved to Hubballi–Dharwad database.');
+                    document.getElementById('stop-input-name').value = '';
+                    await loadExistingStopsOnMap();
+                } else {
+                    alert(res.message || 'Failed to save stop.');
+                }
+            } catch (err) {
+                console.error('Stop create error:', err);
+            }
+        }
+
+        async function handleCreateRoute(e) {
+            e.preventDefault();
+            const payload = {
+                route_number: document.getElementById('route-input-num').value.trim(),
+                route_name: document.getElementById('route-input-name').value.trim(),
+                source: document.getElementById('route-input-src').value.trim(),
+                destination: document.getElementById('route-input-dest').value.trim()
+            };
+
+            try {
+                const res = await api.post('/routes', payload);
+                if (res && res.success) {
+                    alert('Route corridor created successfully.');
+                    document.getElementById('route-input-num').value = '';
+                    document.getElementById('route-input-name').value = '';
+                    await loadRoutesCatalog();
+                } else {
+                    alert(res.message || 'Failed to create route.');
+                }
+            } catch (err) {
+                console.error('Route create error:', err);
+            }
+        }
+    </script>
+</body>
+</html>
