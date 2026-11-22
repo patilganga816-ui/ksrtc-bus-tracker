@@ -226,7 +226,7 @@ async function verifySessionAndRole(req, res) {
                 .from('drivers')
                 .select('*, driver_assignments(*, buses(*))')
                 .eq('profile_id', user.id)
-                .single();
+                .maybeSingle();
             driverData = driver;
         } else if (actualRole === 'admin') {
             redirectUrl = '/admin/dashboard.html';
