@@ -42,10 +42,12 @@ const auth = {
             }
 
             // 2. Transmit session token to backend to verify authoritative role stored in DB
-            const verifyRes = await api.post('/auth/verify-role', {
-                selectedRole,
-                token
-            });
+           const verifyRes = await api.post('/auth/verify-role', {
+    selectedRole,
+    token
+}, {
+    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+});
 
             if (!verifyRes.success) {
                 if (client) await client.auth.signOut();
