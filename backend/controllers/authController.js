@@ -165,13 +165,13 @@ async function registerPassenger(req, res) {
  */
 async function verifySessionAndRole(req, res) {
     try {
-        const authHeader = req.headers['authorization'];
-        const token = authHeader && authHeader.split(' ')[1];
-        const { selectedRole } = req.body;
+            const authHeader = req.headers['authorization'];
+     let token = authHeader && authHeader.split(' ')[1];
+     const { selectedRole, token: bodyToken } = req.body;
 
-        if (!token) {
-            return res.status(401).json({ success: false, message: 'No authorization token provided.' });
-        }
+     if (!token && bodyToken) {
+         token = bodyToken;
+     }
 
         // Verify token with Supabase
         const { data: { user }, error: tokenError } = await supabaseAdmin.auth.getUser(token);
