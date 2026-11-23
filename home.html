@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSRTC — Passenger Home | Hubballi–Dharwad</title>
+    <link rel="stylesheet" href="/css/ksrtc-theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="ksrtc-header">
+        <a href="/passenger/home.html" class="ksrtc-brand">
+            <div class="ksrtc-logo-icon">K</div>
+            <div class="ksrtc-title-block">
+                <h1 data-i18n="appName">KSRTC LOCAL BUS TRACKING</h1>
+                <span data-i18n="passengerPortal">Passenger Portal • Hubballi–Dharwad</span>
+            </div>
+        </a>
+        <div class="ksrtc-nav-links">
+            <a href="/passenger/home.html" class="ksrtc-nav-link active" data-i18n="navHome">Home</a>
+            <a href="/passenger/favourites.html" class="ksrtc-nav-link" data-i18n="navFavourites">Favourites</a>
+            <a href="/passenger/notifications.html" class="ksrtc-nav-link" id="nav-notifs" data-i18n="navAlerts">Alerts</a>
+            <a href="/passenger/account.html" class="ksrtc-nav-link" data-i18n="navAccount">Account</a>
+            <!-- Language Selector -->
+            <div class="ksrtc-lang-container"></div>
+            <button class="btn-logout" onclick="auth.logout()" data-i18n="navLogout">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        
+        <!-- Welcome Hero Banner -->
+        <div class="content-card" style="background: linear-gradient(135deg, #0056b3 0%, #003875 100%); color: #ffffff; padding: 28px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <h2 style="font-size: 1.5rem; margin-bottom: 4px;" id="welcome-header">Welcome, <span id="passenger-name">Commuter</span>! 👋</h2>
+                    <p style="color: #bae6fd; font-size: 0.9rem;" data-i18n="welcomeSub">Find and track local city buses in real-time across Hubballi & Dharwad.</p>
+                </div>
+                <div class="badge badge-live" style="background: rgba(255, 255, 255, 0.2); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.4);" data-i18n="corridorCoverage">
+                    📍 Coverage: Hubballi–Dharwad Corridor
+                </div>
+            </div>
+        </div>
+
+        <!-- Stop-to-Stop Journey Finder -->
+        <div class="content-card">
+            <h3 style="font-size: 1.15rem; color: var(--ksrtc-dark); margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
+                <span data-i18n="findBusesTitle">Find Connecting Buses Between Stops</span>
+            </h3>
+
+            <form onsubmit="handleStopSearch(event)">
+                <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: flex-end; margin-bottom: 16px;">
+                    
+                    <!-- Boarding Stop -->
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" for="boarding-stop" data-i18n="boardingLabel">Boarding Bus Stop (Source)</label>
+                        <select id="boarding-stop" class="form-select" required>
+                            <option value="" data-i18n="selectBoardingPlaceholder">-- Select Boarding Stop --</option>
+                        </select>
+                    </div>
+
+                    <!-- Swap Button -->
+                    <div style="padding-bottom: 4px;">
+                        <button type="button" class="btn-primary" onclick="swapStops()" style="width: 44px; height: 44px; padding: 0; border-radius: var(--radius-full); background: #e2e8f0; color: #334155;" title="Swap Stops" data-i18n-title="swapStopsTitle">
+                            ⇄
+                        </button>
+                    </div>
+
+                    <!-- Destination Stop -->
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" for="destination-stop" data-i18n="destLabel">Destination Bus Stop</label>
+                        <select id="destination-stop" class="form-select" required>
+                            <option value="" data-i18n="selectDestPlaceholder">-- Select Destination Stop --</option>
+                        </select>
+                    </div>
+
+                </div>
+
+                <button type="submit" class="btn-primary" style="max-width: 260px;">
+                    <span data-i18n="btnSearchBuses">🚍 Search Available Buses</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Search by Bus or Route Number -->
+        <div class="content-card">
+            <h3 style="font-size: 1.05rem; color: var(--ksrtc-dark); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                <span data-i18n="directSearchTitle">Or Search Directly by Bus or Route Number</span>
+            </h3>
+            <div style="display: flex; gap: 12px; max-width: 600px;">
+                <input type="text" id="direct-search-input" class="form-input" placeholder="e.g. KA-25-F-1001 or 100-HD or Navanagar" data-i18n-ph="directSearchPlaceholder" style="padding-left: 14px;">
+                <button type="button" class="btn-primary" style="width: auto; padding: 0 20px;" onclick="handleDirectSearch()" data-i18n="btnSearch">
+                    Search
+                </button>
+            </div>
+        </div>
+
+        <!-- Active Transit Buses Overview -->
+        <div class="content-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="font-size: 1.15rem; color: var(--ksrtc-dark); display: flex; align-items: center; gap: 8px;">
+                    <span data-i18n="activeFleetTitle">Currently Active Fleet Buses</span>
+                </h3>
+                <span id="active-buses-count" class="badge badge-live" data-i18n="loadingFleet">Loading...</span>
+            </div>
+
+            <div id="active-buses-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+
+    </main>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/i18n.js"></script>
+
+    <script>
+        let verifiedStops = [];
+        let fleetBuses = [];
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Guard: ensure logged-in user is passenger
+            const user = await auth.guard('passenger');
+            if (!user) return;
+
+            // Apply saved language preference if user has one stored
+            if (user.preferred_language && ['en', 'kn', 'hi'].includes(user.preferred_language)) {
+                if (localStorage.getItem('ksrtc_language') !== user.preferred_language) {
+                    i18n.setLanguage(user.preferred_language);
+                }
+            }
+
+            renderWelcomeBanner(user.full_name || 'Commuter');
+
+            await loadStops();
+            await loadActiveBuses();
+        });
+
+        // Listen for language change events
+        window.addEventListener('ksrtc:languageChanged', () => {
+            const user = api.getUser();
+            if (user) renderWelcomeBanner(user.full_name || 'Commuter');
+            populateStopDropdowns();
+            renderActiveBusesList();
+        });
+
+        function renderWelcomeBanner(name) {
+            const welcomeText = i18n.t('welcomeTitle', { name: name });
+            document.getElementById('welcome-header').innerHTML = `${welcomeText}`;
+        }
+
+        async function loadStops() {
+            try {
+                const res = await api.get('/routes/stops/all');
+                if (res && res.success) {
+                    verifiedStops = res.stops;
+                    populateStopDropdowns();
+                }
+            } catch (err) {
+                console.error('Failed to load stops:', err);
+            }
+        }
+
+        function populateStopDropdowns() {
+            const boardingSelect = document.getElementById('boarding-stop');
+            const destSelect = document.getElementById('destination-stop');
+            const curB = boardingSelect.value;
+            const curD = destSelect.value;
+
+            boardingSelect.innerHTML = `<option value="">${i18n.t('selectBoardingPlaceholder')}</option>`;
+            destSelect.innerHTML = `<option value="">${i18n.t('selectDestPlaceholder')}</option>`;
+
+            verifiedStops.forEach(stop => {
+                const localizedName = i18n.getStopName(stop.stop_name);
+
+                const opt1 = document.createElement('option');
+                opt1.value = stop.id;
+                opt1.textContent = `${localizedName} (${stop.city})`;
+                if (stop.id === curB) opt1.selected = true;
+                boardingSelect.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = stop.id;
+                opt2.textContent = `${localizedName} (${stop.city})`;
+                if (stop.id === curD) opt2.selected = true;
+                destSelect.appendChild(opt2);
+            });
+        }
+
+        function swapStops() {
+            const b = document.getElementById('boarding-stop');
+            const d = document.getElementById('destination-stop');
+            const temp = b.value;
+            b.value = d.value;
+            d.value = temp;
+        }
+
+        function handleStopSearch(e) {
+            e.preventDefault();
+            const boardingId = document.getElementById('boarding-stop').value;
+            const destId = document.getElementById('destination-stop').value;
+
+            if (boardingId === destId) {
+                alert(i18n.getLanguage() === 'kn' ? 'ಹತ್ತುವ ಮತ್ತು ತಲುಪುವ ನಿಲ್ದಾಣಗಳು ಬೇರೆ ಬೇರೆಯಾಗಿರಬೇಕು.' : 
+                      (i18n.getLanguage() === 'hi' ? 'बोर्डिंग और गंतव्य स्टॉप अलग-अलग होने चाहिए।' : 'Boarding and destination stops must be different.'));
+                return;
+            }
+
+            window.location.href = `/passenger/search-results.html?from=${boardingId}&to=${destId}`;
+        }
+
+        function handleDirectSearch() {
+            const query = document.getElementById('direct-search-input').value.trim();
+            if (!query) return;
+            window.location.href = `/passenger/search-results.html?q=${encodeURIComponent(query)}`;
+        }
+
+        async function loadActiveBuses() {
+            try {
+                const res = await api.get('/buses');
+                if (res && res.success) {
+                    fleetBuses = res.buses || [];
+                    renderActiveBusesList();
+                }
+            } catch (err) {
+                console.error('Error loading active buses:', err);
+                const container = document.getElementById('active-buses-list');
+                container.innerHTML = `<div style="grid-column: 1 / -1; color: red;">Failed to load fleet data.</div>`;
+            }
+        }
+
+        function renderActiveBusesList() {
+            const container = document.getElementById('active-buses-list');
+            const badge = document.getElementById('active-buses-count');
+
+            if (!fleetBuses || fleetBuses.length === 0) {
+                container.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 24px; color: var(--text-muted);">
+                        ${i18n.t('noRegisteredBuses')}
+                    </div>
+                `;
+                badge.textContent = '0 Buses';
+                badge.className = 'badge badge-stale';
+                return;
+            }
+
+            badge.textContent = i18n.t('registeredBusesCount', { count: fleetBuses.length });
+
+            container.innerHTML = fleetBuses.map(bus => {
+                const hasActiveTrip = !!bus.active_trip;
+                const isGpsActive = hasActiveTrip && !!bus.latest_location;
+                const statusText = isGpsActive ? i18n.t('statusGpsActive') : (hasActiveTrip ? i18n.t('statusTripActive') : i18n.t('statusIdle'));
+
+                return `
+                    <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <h4 style="font-size: 1.05rem; color: var(--ksrtc-dark); font-weight: 700;">${bus.bus_number}</h4>
+                                <span class="badge ${isGpsActive ? 'badge-live' : 'badge-stale'}">
+                                    ${statusText}
+                                </span>
+                            </div>
+                            <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px;">
+                                <strong>${i18n.t('typeLabel')}:</strong> ${bus.bus_type}
+                            </p>
+                            <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 12px;">
+                                <strong>${i18n.t('routeLabel')}:</strong> ${bus.route ? `${bus.route.route_number} - ${bus.route.route_name}` : i18n.t('unassigned')}
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 10px;">
+                            <a href="/passenger/live-tracking.html?busId=${bus.id}" class="btn-primary" style="font-size: 0.85rem; padding: 8px; text-decoration: none;">
+                                ${i18n.t('btnLiveTrack')}
+                            </a>
+                            ${bus.route ? `
+                                <a href="/passenger/route-details.html?routeId=${bus.route.id}" class="btn-primary" style="font-size: 0.85rem; padding: 8px; background: #e2e8f0; color: #1e293b; text-decoration: none;">
+                                    ${i18n.t('btnRouteInfo')}
+                                </a>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>
