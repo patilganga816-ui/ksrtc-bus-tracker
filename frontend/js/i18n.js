@@ -21,19 +21,19 @@ const KSRTC_TRANSLATIONS = {
         language: "Language",
 
         // Search Section
-        findBusesTitle: "Find Connecting Buses Between Stops",
+        findBusesTitle: "🔍 Find Connecting Buses Between Stops",
         boardingLabel: "Boarding Bus Stop (Source)",
         selectBoardingPlaceholder: "-- Select Boarding Stop --",
         destLabel: "Destination Bus Stop",
         selectDestPlaceholder: "-- Select Destination Stop --",
         swapStopsTitle: "Swap Stops",
         btnSearchBuses: "🚍 Search Available Buses",
-        directSearchTitle: "Or Search Directly by Bus or Route Number",
+        directSearchTitle: "🔢 Or Search Directly by Bus or Route Number",
         directSearchPlaceholder: "e.g. KA-25-F-1001 or 100-HD or Navanagar",
         btnSearch: "Search",
 
         // Active Fleet Section
-        activeFleetTitle: "Currently Active Fleet Buses",
+        activeFleetTitle: "⚡ Currently Active Fleet Buses",
         loadingFleet: "Loading...",
         noRegisteredBuses: "No registered buses found. Waiting for administrator to configure fleet.",
         btnLiveTrack: "📍 Live Track",
@@ -193,19 +193,19 @@ const KSRTC_TRANSLATIONS = {
         language: "ಭಾಷೆ",
 
         // Search Section
-        findBusesTitle: "ನಿಲ್ದಾಣಗಳ ನಡುವೆ ಸಂಪರ್ಕಿಸುವ ಬಸ್‌ಗಳನ್ನು ಹುಡುಕಿ",
+        findBusesTitle: "🔍 ನಿಲ್ದಾಣಗಳ ನಡುವೆ ಸಂಪರ್ಕಿಸುವ ಬಸ್‌ಗಳನ್ನು ಹುಡುಕಿ",
         boardingLabel: "ಹತ್ತುವ ಬಸ್ ನಿಲ್ದಾಣ (ಪ್ರಾರಂಭ)",
         selectBoardingPlaceholder: "-- ಹತ್ತುವ ನಿಲ್ದಾಣವನ್ನು ಆರಿಸಿ --",
         destLabel: "ತಲುಪುವ ಬಸ್ ನಿಲ್ದಾಣ (ಗಮ್ಯಸ್ಥಾನ)",
         selectDestPlaceholder: "-- ತಲುಪುವ ನಿಲ್ದಾಣವನ್ನು ಆರಿಸಿ --",
         swapStopsTitle: "ನಿಲ್ದಾಣಗಳನ್ನು ಅದಲು-ಬದಲು ಮಾಡಿ",
         btnSearchBuses: "🚍 ಲಭ್ಯವಿರುವ ಬಸ್‌ಗಳನ್ನು ಹುಡುಕಿ",
-        directSearchTitle: "ಅಥವಾ ಬಸ್ ಅಥವಾ ಮಾರ್ಗ ಸಂಖ್ಯೆಯ ಮೂಲಕ ನೇರವಾಗಿ ಹುಡುಕಿ",
+        directSearchTitle: "🔢 ಅಥವಾ ಬಸ್ ಅಥವಾ ಮಾರ್ಗ ಸಂಖ್ಯೆಯ ಮೂಲಕ ನೇರವಾಗಿ ಹುಡುಕಿ",
         directSearchPlaceholder: "ಉದಾ: KA-25-F-1001 ಅಥವಾ 100-HD ಅಥವಾ ನವನಗರ",
         btnSearch: "ಹುಡುಕಿ",
 
         // Active Fleet Section
-        activeFleetTitle: "ಪ್ರಸ್ತುತ ಸಂಚರಿಸುತ್ತಿರುವ ಬಸ್‌ಗಳು",
+        activeFleetTitle: "⚡ ಪ್ರಸ್ತುತ ಸಂಚರಿಸುತ್ತಿರುವ ಬಸ್‌ಗಳು",
         loadingFleet: "ಲೋಡ್ ಆಗುತ್ತಿದೆ...",
         noRegisteredBuses: "ನೋಂದಾಯಿತ ಬಸ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ. ಆಡಳಿತಾಧಿಕಾರಿಗಳು ಫ್ಲೀಟ್ ಸಂರಚಿಸಲು ಕಾಯಲಾಗುತ್ತಿದೆ.",
         btnLiveTrack: "📍 ಲೈವ್ ಟ್ರ್ಯಾಕ್",
@@ -360,19 +360,19 @@ const KSRTC_TRANSLATIONS = {
         language: "भाषा",
 
         // Search Section
-        findBusesTitle: "स्टॉप्स के बीच कनेक्टिंग बसें खोजें",
+        findBusesTitle: "🔍 स्टॉप्स के बीच कनेक्टिंग बसें खोजें",
         boardingLabel: "बोर्डिंग बस स्टॉप (प्रारंभिक)",
         selectBoardingPlaceholder: "-- बोर्डिंग स्टॉप चुनें --",
         destLabel: "गंतव्य बस स्टॉप",
         selectDestPlaceholder: "-- गंतव्य स्टॉप चुनें --",
         swapStopsTitle: "स्टॉप्स बदलें",
         btnSearchBuses: "🚍 उपलब्ध बसें खोजें",
-        directSearchTitle: "या सीधे बस या रूट नंबर से खोजें",
+        directSearchTitle: "🔢 या सीधे बस या रूट नंबर से खोजें",
         directSearchPlaceholder: "उदा: KA-25-F-1001 या 100-HD या नवनागर",
         btnSearch: "खोजें",
 
         // Active Fleet Section
-        activeFleetTitle: "वर्तमान में सक्रिय बसें",
+        activeFleetTitle: "⚡ वर्तमान में सक्रिय बसें",
         loadingFleet: "लोड हो रहा है...",
         noRegisteredBuses: "कोई पंजीकृत बस नहीं मिली। व्यवस्थापक द्वारा बेड़े के विन्यास की प्रतीक्षा है।",
         btnLiveTrack: "📍 लाइव ट्रैक",
