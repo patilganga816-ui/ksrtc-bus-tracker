@@ -165,13 +165,17 @@ async function registerPassenger(req, res) {
  */
 async function verifySessionAndRole(req, res) {
     try {
-            const authHeader = req.headers['authorization'];
-     let token = authHeader && authHeader.split(' ')[1];
-     const { selectedRole, token: bodyToken } = req.body;
+        const authHeader = req.headers['authorization'];
+        let token = authHeader && authHeader.split(' ')[1];
+        const { selectedRole, token: bodyToken } = req.body;
 
-     if (!token && bodyToken) {
-         token = bodyToken;
-     }
+        if (!token && bodyToken) {
+            token = bodyToken;
+        }
+
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'No authorization token provided.' });
+        }
 
         // Verify token with Supabase
         const { data: { user }, error: tokenError } = await supabaseAdmin.auth.getUser(token);
@@ -206,30 +210,27 @@ async function verifySessionAndRole(req, res) {
 
         const actualRole = profile.role;
 
-        // If the user selected a specific role on the common login page, verify it strictly
-        if (selectedRole && selectedRole.toLowerCase() !== actualRole) {
-            return res.status(403).json({
-                success: false,
-                code: 'ROLE_MISMATCH',
-                actualRole: actualRole,
-                message: `Access denied. You selected '${selectedRole}', but your account is registered as '${actualRole}'.`
-            });
-        }
-
-        // Determine destination dashboard
+        // Auto-detect role and redirect directly to appropriate dashboard
+        // If selectedRole was passed, we log into their actual registered role gracefully
         let redirectUrl = '/passenger/home.html';
         let driverData = null;
 
         if (actualRole === 'driver') {
             redirectUrl = '/driver/trip-setup.html';
-            const { data: driver } = await supabaseAdmin
-                .from('drivers')
-                .select('*, driver_assignments(*, buses(*))')
-                .eq('profile_id', user.id)
-                .maybeSingle();
-            driverData = driver;
+            try {
+                const { data: driver } = await supabaseAdmin
+                    .from('drivers')
+                    .select('*, driver_assignments(*, buses(*))')
+                    .eq('profile_id', user.id)
+                    .maybeSingle();
+                driverData = driver;
+            } catch (driverErr) {
+                console.warn('Driver details fetch notice:', driverErr);
+            }
         } else if (actualRole === 'admin') {
             redirectUrl = '/admin/dashboard.html';
+        } else {
+            redirectUrl = '/passenger/home.html';
         }
 
         return res.json({

@@ -21,6 +21,7 @@ const driverRoutes = require('./routes/driverRoutes');
 const passengerRoutes = require('./routes/passengerRoutes');
 const tripRoutes = require('./routes/tripRoutes');
 const locationRoutes = require('./routes/locationRoutes');
+const voiceRoutes = require('./routes/voiceRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -46,6 +47,7 @@ app.use('/api/drivers', driverRoutes);
 app.use('/api/passengers', passengerRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/locations', locationRoutes);
+app.use('/api/voice', voiceRoutes);
 
 // 4. API Health & Diagnostic Endpoint
 app.get('/api/health', (req, res) => {

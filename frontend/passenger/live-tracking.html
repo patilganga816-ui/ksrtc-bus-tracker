@@ -70,9 +70,18 @@
                         <option value="">-- Choose Boarding Stop --</option>
                     </select>
                 </div>
-                <div id="dest-display-wrapper" style="display: none;">
-                    <span style="color: var(--text-secondary); font-weight: 600;" data-i18n="destinationStopLbl">Destination:</span>
-                    <strong id="lbl-destination-stop" style="color: #dc2626; font-size: 0.95rem;">-</strong>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div id="dest-display-wrapper" style="display: none;">
+                        <span style="color: var(--text-secondary); font-weight: 600;" data-i18n="destinationStopLbl">Destination:</span>
+                        <strong id="lbl-destination-stop" style="color: #dc2626; font-size: 0.95rem;">-</strong>
+                    </div>
+                    <!-- Deepgram AI Voice Assistant Trigger Button -->
+                    <button type="button" id="btn-voice-assistant-toggle" onclick="toggleVoiceAssistant()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: var(--radius-full); border: 1px solid var(--border-color); font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: #f1f5f9; color: #334155;">
+                        <span>🔈</span> <span data-i18n="voiceOff">Voice: OFF</span>
+                    </button>
+                    <span id="voice-speaking-indicator" style="display: none; align-items: center; gap: 4px; font-size: 0.75rem; color: #16a34a; font-weight: 600;">
+                        <span>🎙️</span> <span data-i18n="announcingNextStop">Announcing Next Stop...</span>
+                    </span>
                 </div>
             </div>
 
@@ -131,6 +140,7 @@
     <script src="/js/realtime-tracker.js"></script>
     <script src="/js/i18n.js"></script>
     <script src="/js/eta-calculator.js"></script>
+    <script src="/js/deepgram-voice.js"></script>
 
     <script>
         let targetBusId = null;
@@ -410,6 +420,40 @@
 
             // Recalculate Distance & ETA live
             recomputeETAAndDistance();
+
+            // Trigger Deepgram Voice announcement for approaching next stop
+            triggerApproachingStopVoiceAnnouncement(lat, lng, busNumber);
+        }
+
+        function triggerApproachingStopVoiceAnnouncement(busLat, busLng, busNumber) {
+            if (!window.deepgramVoice || !window.deepgramVoice.isEnabled) return;
+            if (!currentRouteStops || currentRouteStops.length === 0) return;
+
+            // Determine the next approaching stop along the route
+            let nextStop = null;
+            let minDistance = Infinity;
+
+            for (let i = 0; i < currentRouteStops.length; i++) {
+                const stop = currentRouteStops[i];
+                if (!stop.latitude || !stop.longitude) continue;
+                const d = ETACalculator.haversine(busLat, busLng, stop.latitude, stop.longitude);
+                
+                // If bus is within approaching threshold (e.g., between 80m and 1200m)
+                if (d < minDistance) {
+                    minDistance = d;
+                    nextStop = stop;
+                }
+            }
+
+            if (nextStop) {
+                window.deepgramVoice.announceNextApproachingStop(nextStop, busNumber, minDistance);
+            }
+        }
+
+        function toggleVoiceAssistant() {
+            if (window.deepgramVoice) {
+                window.deepgramVoice.toggle();
+            }
         }
 
         function recomputeETAAndDistance() {

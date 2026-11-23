@@ -97,6 +97,11 @@ const KSRTC_TRANSLATIONS = {
         etaDisclaimer: "ℹ️ ETA is approximate and subject to road traffic conditions.",
         selectBoardingPrompt: "Select your boarding stop above to calculate ETA & remaining distance.",
 
+        // AI Voice Assistant
+        voiceOn: "Voice: ON",
+        voiceOff: "Voice: OFF",
+        announcingNextStop: "Announcing Next Stop...",
+
         // Route Details Page
         routeDetailsTitle: "Transit Route Corridor",
         backToHome: "← Back to Home",
