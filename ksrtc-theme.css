@@ -1,0 +1,726 @@
+/* =====================================================================
+   KSRTC LOCAL BUS TRACKING SYSTEM — DESIGN SYSTEM & THEME
+   Hubballi–Dharwad Transit Corridor — KSRTC Blue & White Palette
+   ===================================================================== */
+
+:root {
+    --ksrtc-primary: #0056b3;
+    --ksrtc-primary-hover: #004494;
+    --ksrtc-dark: #002b5c;
+    --ksrtc-light-blue: #ebf5ff;
+    --ksrtc-accent: #dc2626;
+    --ksrtc-gold: #f59e0b;
+    --ksrtc-success: #16a34a;
+    --ksrtc-warning: #ea580c;
+    --ksrtc-danger: #ef4444;
+    
+    --bg-main: #f1f5f9;
+    --bg-card: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --border-color: #e2e8f0;
+    
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-full: 9999px;
+    
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ---------------------------------------------------------------------
+   NAVIGATION HEADER
+   --------------------------------------------------------------------- */
+.ksrtc-header {
+    background: linear-gradient(135deg, var(--ksrtc-dark) 0%, var(--ksrtc-primary) 100%);
+    color: #ffffff;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow-md);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.ksrtc-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: #ffffff;
+}
+
+.ksrtc-logo-icon {
+    width: 38px;
+    height: 38px;
+    background: #ffffff;
+    color: var(--ksrtc-primary);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.1rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.ksrtc-title-block h1 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+}
+
+.ksrtc-title-block span {
+    font-size: 0.75rem;
+    color: #bae6fd;
+    font-weight: 500;
+}
+
+.ksrtc-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.ksrtc-nav-link {
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    transition: background 0.2s;
+}
+
+.ksrtc-nav-link:hover, .ksrtc-nav-link.active {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.btn-logout {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fecaca;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-logout:hover {
+    background: var(--ksrtc-danger);
+    color: #ffffff;
+}
+
+/* ---------------------------------------------------------------------
+   COMMON LOGIN CONTAINER & ROLE SELECTOR
+   --------------------------------------------------------------------- */
+.auth-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+}
+
+.auth-card {
+    background: var(--bg-card);
+    width: 100%;
+    max-width: 440px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 32px 28px;
+    border-top: 5px solid var(--ksrtc-primary);
+}
+
+.auth-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.auth-header .logo-badge {
+    width: 56px;
+    height: 56px;
+    background: var(--ksrtc-light-blue);
+    color: var(--ksrtc-primary);
+    border-radius: var(--radius-full);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+.auth-header h2 {
+    font-size: 1.35rem;
+    color: var(--ksrtc-dark);
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.auth-header p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Segmented Role Selector */
+.role-segmented-control {
+    display: flex;
+    background: #e2e8f0;
+    border-radius: var(--radius-md);
+    padding: 4px;
+    margin-bottom: 24px;
+    gap: 4px;
+}
+
+.role-pill-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 10px 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.role-pill-btn.active {
+    background: #ffffff;
+    color: var(--ksrtc-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+}
+
+.form-input, .form-select {
+    width: 100%;
+    padding: 11px 14px 11px 40px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 0.92rem;
+    color: var(--text-primary);
+    outline: none;
+    transition: border 0.2s, box-shadow 0.2s;
+}
+
+.form-input:focus, .form-select:focus {
+    border-color: var(--ksrtc-primary);
+    box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.15);
+}
+
+.password-toggle-btn {
+    position: absolute;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.btn-primary {
+    width: 100%;
+    background: var(--ksrtc-primary);
+    color: #ffffff;
+    border: none;
+    padding: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-primary:hover {
+    background: var(--ksrtc-primary-hover);
+}
+
+.btn-primary:active {
+    transform: scale(0.99);
+}
+
+.auth-footer {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.auth-footer a {
+    color: var(--ksrtc-primary);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.auth-footer a:hover {
+    text-decoration: underline;
+}
+
+/* Alert Boxes */
+.alert-box {
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    font-size: 0.85rem;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.alert-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+}
+
+.alert-success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+}
+
+/* ---------------------------------------------------------------------
+   LEAFLET MAP & LIVE BUS RADAR MARKERS
+   --------------------------------------------------------------------- */
+.map-viewport-container {
+    width: 100%;
+    height: 65vh;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    border: 1px solid var(--border-color);
+}
+
+.ksrtc-bus-marker-wrapper {
+    background: transparent;
+    border: none;
+}
+
+.bus-marker-pin {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bus-pulse-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 3px solid var(--ksrtc-primary);
+    animation: radar-pulse 2s infinite ease-out;
+}
+
+@keyframes radar-pulse {
+    0% {
+        transform: scale(0.6);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1.8);
+        opacity: 0;
+    }
+}
+
+.bus-icon-circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    border: 2px solid #ffffff;
+    z-index: 2;
+}
+
+.bus-badge-label {
+    position: absolute;
+    bottom: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+    box-shadow: var(--shadow-sm);
+}
+
+.stop-marker-pin {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+}
+
+/* Status Badges */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-live {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.badge-simulated {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.badge-stale {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* ---------------------------------------------------------------------
+   DASHBOARD CARDS, STATS & TABLES
+   --------------------------------------------------------------------- */
+.dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 16px;
+    width: 100%;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 18px;
+    box-shadow: var(--shadow-sm);
+    border-left: 4px solid var(--ksrtc-primary);
+}
+
+.stat-card h3 {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.stat-card .stat-number {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--ksrtc-dark);
+}
+
+.content-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.data-table th {
+    background: #f8fafc;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.data-table tr:hover {
+    background: #f8fafc;
+}
+
+/* Mobile Responsiveness & Adaptive Viewport */
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 12px 10px;
+    }
+    .content-card {
+        padding: 16px 14px;
+        margin-bottom: 16px;
+        border-radius: var(--radius-md);
+    }
+    .map-viewport-container {
+        height: 55vh;
+        border-radius: var(--radius-md);
+    }
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+    .stat-card {
+        padding: 12px;
+    }
+    .stat-card .stat-number {
+        font-size: 1.4rem;
+    }
+    .ksrtc-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 10px 14px;
+    }
+    .ksrtc-brand {
+        justify-content: flex-start;
+    }
+    .ksrtc-title-block h1 {
+        font-size: 0.95rem;
+    }
+    .ksrtc-title-block span {
+        font-size: 0.7rem;
+    }
+    .ksrtc-nav-links {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .ksrtc-nav-link {
+        font-size: 0.8rem;
+        padding: 5px 8px;
+        white-space: nowrap;
+    }
+    .ksrtc-lang-select {
+        padding: 4px 6px;
+        font-size: 0.78rem;
+    }
+    .btn-logout {
+        padding: 4px 8px;
+        font-size: 0.78rem;
+    }
+    /* Stop Search Form on Mobile */
+    form div[style*="grid-template-columns: 1fr auto 1fr"] {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        align-items: stretch !important;
+    }
+    form div[style*="grid-template-columns: 1fr auto 1fr"] button[title="Swap Stops"] {
+        align-self: center !important;
+        margin: 2px 0 !important;
+        transform: rotate(90deg);
+    }
+    .btn-primary {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    /* Direct Search Bar */
+    div[style*="max-width: 600px"] {
+        flex-direction: column !important;
+        max-width: 100% !important;
+    }
+    /* Active Bus Cards Grid */
+    #active-buses-list {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    /* Live Tracking ETA & Distance HUD */
+    .eta-distance-banner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 12px 14px;
+    }
+    .eta-distance-banner > div:first-child {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+    .eta-distance-banner div[style*="border-left"] {
+        display: none !important;
+    }
+    .eta-stat-item .val {
+        font-size: 1.1rem;
+    }
+    #journey-stops-banner {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+    #journey-stops-banner > div {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 6px !important;
+    }
+    #boarding-stop-selector {
+        width: 100% !important;
+    }
+    /* Data tables horizontal scroll */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .data-table th, .data-table td {
+        padding: 8px 10px;
+        font-size: 0.8rem;
+        white-space: nowrap;
+    }
+}
+
+/* ---------------------------------------------------------------------
+   MULTILINGUAL & ETA / DISTANCE INTEGRATION STYLES
+   --------------------------------------------------------------------- */
+.ksrtc-lang-container {
+    display: inline-flex;
+    align-items: center;
+}
+
+.ksrtc-lang-select {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    cursor: pointer;
+    outline: none;
+    font-weight: 500;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.ksrtc-lang-select:hover, .ksrtc-lang-select:focus {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: #ffffff;
+}
+
+.ksrtc-lang-select option {
+    background: #ffffff;
+    color: #0f172a;
+}
+
+.eta-distance-banner {
+    background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);
+    border: 1px solid #bbf7d0;
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+    margin-top: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.eta-stat-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.eta-stat-item .label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.eta-stat-item .val {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--ksrtc-dark);
+}
+
+.badge-passed {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.badge-route-dist {
+    background: #e0f2fe;
+    color: #0369a1;
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+}
+
