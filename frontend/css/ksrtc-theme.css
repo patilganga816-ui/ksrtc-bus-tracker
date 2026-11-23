@@ -514,25 +514,135 @@ body {
     background: #f8fafc;
 }
 
-/* Mobile Responsiveness */
+/* Mobile Responsiveness & Adaptive Viewport */
 @media (max-width: 768px) {
+    .dashboard-container {
+        padding: 12px 10px;
+    }
+    .content-card {
+        padding: 16px 14px;
+        margin-bottom: 16px;
+        border-radius: var(--radius-md);
+    }
     .map-viewport-container {
-        height: 52vh;
+        height: 55vh;
+        border-radius: var(--radius-md);
     }
     .stats-grid {
         grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+    .stat-card {
+        padding: 12px;
+    }
+    .stat-card .stat-number {
+        font-size: 1.4rem;
+    }
+    .ksrtc-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 10px 14px;
+    }
+    .ksrtc-brand {
+        justify-content: flex-start;
     }
     .ksrtc-title-block h1 {
         font-size: 0.95rem;
     }
-    .ksrtc-header {
-        flex-wrap: wrap;
-        gap: 10px;
+    .ksrtc-title-block span {
+        font-size: 0.7rem;
     }
     .ksrtc-nav-links {
         width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
         overflow-x: auto;
         padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .ksrtc-nav-link {
+        font-size: 0.8rem;
+        padding: 5px 8px;
+        white-space: nowrap;
+    }
+    .ksrtc-lang-select {
+        padding: 4px 6px;
+        font-size: 0.78rem;
+    }
+    .btn-logout {
+        padding: 4px 8px;
+        font-size: 0.78rem;
+    }
+    /* Stop Search Form on Mobile */
+    form div[style*="grid-template-columns: 1fr auto 1fr"] {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        align-items: stretch !important;
+    }
+    form div[style*="grid-template-columns: 1fr auto 1fr"] button[title="Swap Stops"] {
+        align-self: center !important;
+        margin: 2px 0 !important;
+        transform: rotate(90deg);
+    }
+    .btn-primary {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    /* Direct Search Bar */
+    div[style*="max-width: 600px"] {
+        flex-direction: column !important;
+        max-width: 100% !important;
+    }
+    /* Active Bus Cards Grid */
+    #active-buses-list {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    /* Live Tracking ETA & Distance HUD */
+    .eta-distance-banner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 12px 14px;
+    }
+    .eta-distance-banner > div:first-child {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+    .eta-distance-banner div[style*="border-left"] {
+        display: none !important;
+    }
+    .eta-stat-item .val {
+        font-size: 1.1rem;
+    }
+    #journey-stops-banner {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+    #journey-stops-banner > div {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 6px !important;
+    }
+    #boarding-stop-selector {
+        width: 100% !important;
+    }
+    /* Data tables horizontal scroll */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .data-table th, .data-table td {
+        padding: 8px 10px;
+        font-size: 0.8rem;
+        white-space: nowrap;
     }
 }
 
